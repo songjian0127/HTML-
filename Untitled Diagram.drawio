@@ -40,7 +40,7 @@
         <mxCell id="DvbZTr1sbasB1ZSRingH-13" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.25;entryY=1;entryDx=0;entryDy=0;" parent="1" source="DvbZTr1sbasB1ZSRingH-6" target="DvbZTr1sbasB1ZSRingH-12" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="sWjKvFemMA6WNyiepZkH-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="DvbZTr1sbasB1ZSRingH-6" target="sWjKvFemMA6WNyiepZkH-1">
+        <mxCell id="sWjKvFemMA6WNyiepZkH-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" parent="1" source="DvbZTr1sbasB1ZSRingH-6" target="sWjKvFemMA6WNyiepZkH-1" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="DvbZTr1sbasB1ZSRingH-6" value="Level Selection&lt;br&gt;(unlock new level by completing current level)" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
@@ -49,8 +49,8 @@
         <mxCell id="DvbZTr1sbasB1ZSRingH-12" value="Difficulty (future)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=default;dashed=1;dashPattern=8 8;" parent="1" vertex="1">
           <mxGeometry x="290" y="50" width="120" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="sWjKvFemMA6WNyiepZkH-1" value="Smoothly transition from level selection to player start (use a wall for level display, once level is chosen, the wall is tear down and then camera is transitioned to third person and zoom out)&lt;div&gt;&lt;br&gt;&lt;/div&gt;" style="whiteSpace=wrap;html=1;rounded=1;" vertex="1" parent="1">
-          <mxGeometry x="150" y="240" width="120" height="150" as="geometry" />
+        <mxCell id="sWjKvFemMA6WNyiepZkH-1" value="Smoothly transition from level selection to player start (use a wall for level display, once level is chosen, the wall is tear down and then camera is transitioned to third person and zoom out, player spawn in a cave/room/dungeon)&lt;div&gt;&lt;br&gt;&lt;/div&gt;" style="whiteSpace=wrap;html=1;rounded=1;" parent="1" vertex="1">
+          <mxGeometry x="150" y="240" width="120" height="190" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
