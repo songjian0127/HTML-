@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 Edg/129.0.0.0" version="24.7.16">
   <diagram name="Page-1" id="rYuYCStadhXCLP9SaO74">
-    <mxGraphModel dx="1002" dy="1667" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="1179" dy="1767" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -29,19 +29,6 @@
         <mxCell id="DvbZTr1sbasB1ZSRingH-3" value="Settings (Graphics, Language, Difficulties)" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
           <mxGeometry x="30" y="-100" width="120" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="DvbZTr1sbasB1ZSRingH-8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=0;exitY=0.25;exitDx=0;exitDy=0;" parent="1" source="DvbZTr1sbasB1ZSRingH-6" target="DvbZTr1sbasB1ZSRingH-1" edge="1">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="110" y="135" />
-              <mxPoint x="110" y="10" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="DvbZTr1sbasB1ZSRingH-9" value="ESC" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="DvbZTr1sbasB1ZSRingH-8" vertex="1" connectable="0">
-          <mxGeometry x="-0.0012" y="-1" relative="1" as="geometry">
-            <mxPoint as="offset" />
-          </mxGeometry>
-        </mxCell>
         <mxCell id="sWjKvFemMA6WNyiepZkH-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" parent="1" source="DvbZTr1sbasB1ZSRingH-6" target="sWjKvFemMA6WNyiepZkH-1" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
@@ -50,11 +37,122 @@
             <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
+        <mxCell id="A-0uA8nPq4QZAQ91zx8X-22" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.75;entryDx=0;entryDy=0;" edge="1" parent="1" source="DvbZTr1sbasB1ZSRingH-6" target="DvbZTr1sbasB1ZSRingH-1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="130" y="155" />
+              <mxPoint x="130" y="25" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="A-0uA8nPq4QZAQ91zx8X-23" value="ESC" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="A-0uA8nPq4QZAQ91zx8X-22">
+          <mxGeometry x="0.0428" y="1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
         <mxCell id="DvbZTr1sbasB1ZSRingH-6" value="Level Selection&lt;br&gt;(unlock new level by completing current level)" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
           <mxGeometry x="150" y="120" width="120" height="70" as="geometry" />
         </mxCell>
+        <mxCell id="A-0uA8nPq4QZAQ91zx8X-6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="sWjKvFemMA6WNyiepZkH-1" target="A-0uA8nPq4QZAQ91zx8X-5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
         <mxCell id="sWjKvFemMA6WNyiepZkH-1" value="Smoothly transition from level selection to player start (use a wall for level display, once level is chosen, the wall is tear down and then camera is transitioned to third person and zoom out, player spawn in a cave/room/dungeon)&lt;div&gt;&lt;br&gt;&lt;/div&gt;" style="whiteSpace=wrap;html=1;rounded=1;" parent="1" vertex="1">
           <mxGeometry x="150" y="240" width="120" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="A-0uA8nPq4QZAQ91zx8X-8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="A-0uA8nPq4QZAQ91zx8X-5" target="A-0uA8nPq4QZAQ91zx8X-7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="A-0uA8nPq4QZAQ91zx8X-35" value="Timer != 0" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="A-0uA8nPq4QZAQ91zx8X-8">
+          <mxGeometry x="-0.1243" y="2" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="A-0uA8nPq4QZAQ91zx8X-36" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;" edge="1" parent="1" source="A-0uA8nPq4QZAQ91zx8X-5" target="A-0uA8nPq4QZAQ91zx8X-19">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="A-0uA8nPq4QZAQ91zx8X-37" value="Time Out" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="A-0uA8nPq4QZAQ91zx8X-36">
+          <mxGeometry x="-0.3595" y="5" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="A-0uA8nPq4QZAQ91zx8X-5" value="Explore the Map" style="whiteSpace=wrap;html=1;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="350" y="305" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="A-0uA8nPq4QZAQ91zx8X-10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="A-0uA8nPq4QZAQ91zx8X-7" target="A-0uA8nPq4QZAQ91zx8X-9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="A-0uA8nPq4QZAQ91zx8X-11" value="destroyed" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="A-0uA8nPq4QZAQ91zx8X-10">
+          <mxGeometry x="-0.205" y="2" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="A-0uA8nPq4QZAQ91zx8X-17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="A-0uA8nPq4QZAQ91zx8X-7" target="A-0uA8nPq4QZAQ91zx8X-16">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="A-0uA8nPq4QZAQ91zx8X-18" value="Injured" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="A-0uA8nPq4QZAQ91zx8X-17">
+          <mxGeometry x="-0.125" y="2" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="A-0uA8nPq4QZAQ91zx8X-7" value="Find and destroy towers/enemies" style="whiteSpace=wrap;html=1;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="670" y="305" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="A-0uA8nPq4QZAQ91zx8X-14" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="A-0uA8nPq4QZAQ91zx8X-9" target="A-0uA8nPq4QZAQ91zx8X-13">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="A-0uA8nPq4QZAQ91zx8X-15" value="spend" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="A-0uA8nPq4QZAQ91zx8X-14">
+          <mxGeometry x="-0.005" y="4" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="A-0uA8nPq4QZAQ91zx8X-9" value="Gain Coins/Points" style="whiteSpace=wrap;html=1;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="670" y="165" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="A-0uA8nPq4QZAQ91zx8X-31" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="A-0uA8nPq4QZAQ91zx8X-13" target="A-0uA8nPq4QZAQ91zx8X-5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="A-0uA8nPq4QZAQ91zx8X-33" value="Enhanced" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="A-0uA8nPq4QZAQ91zx8X-31">
+          <mxGeometry x="-0.652" y="4" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="A-0uA8nPq4QZAQ91zx8X-13" value="Upgrade or unlock skills" style="whiteSpace=wrap;html=1;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="670" y="25" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="A-0uA8nPq4QZAQ91zx8X-20" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="A-0uA8nPq4QZAQ91zx8X-16" target="A-0uA8nPq4QZAQ91zx8X-19">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="A-0uA8nPq4QZAQ91zx8X-21" value="Dead" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="A-0uA8nPq4QZAQ91zx8X-20">
+          <mxGeometry x="0.005" y="1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="A-0uA8nPq4QZAQ91zx8X-30" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="A-0uA8nPq4QZAQ91zx8X-16" target="A-0uA8nPq4QZAQ91zx8X-5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="A-0uA8nPq4QZAQ91zx8X-32" value="Healed" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="A-0uA8nPq4QZAQ91zx8X-30">
+          <mxGeometry x="-0.3185" y="-2" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="A-0uA8nPq4QZAQ91zx8X-16" value="Use Healing potions / collect health packs" style="whiteSpace=wrap;html=1;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="670" y="445" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="A-0uA8nPq4QZAQ91zx8X-24" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="A-0uA8nPq4QZAQ91zx8X-19" target="DvbZTr1sbasB1ZSRingH-1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="80" y="615" />
+              <mxPoint x="80" y="10" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="A-0uA8nPq4QZAQ91zx8X-25" value="Return to Title" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="A-0uA8nPq4QZAQ91zx8X-24">
+          <mxGeometry x="-0.6311" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="A-0uA8nPq4QZAQ91zx8X-19" value="Game Over" style="whiteSpace=wrap;html=1;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="670" y="585" width="120" height="60" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
