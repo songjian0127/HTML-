@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 Edg/129.0.0.0" version="24.7.16">
   <diagram name="Page-1" id="rYuYCStadhXCLP9SaO74">
-    <mxGraphModel dx="1179" dy="1767" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="1670" dy="2045" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -55,6 +55,11 @@
         </mxCell>
         <mxCell id="A-0uA8nPq4QZAQ91zx8X-6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="sWjKvFemMA6WNyiepZkH-1" target="A-0uA8nPq4QZAQ91zx8X-5">
           <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="A-0uA8nPq4QZAQ91zx8X-45" value="Game Start" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="A-0uA8nPq4QZAQ91zx8X-6">
+          <mxGeometry x="-0.1417" y="-1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
         </mxCell>
         <mxCell id="sWjKvFemMA6WNyiepZkH-1" value="Smoothly transition from level selection to player start (use a wall for level display, once level is chosen, the wall is tear down and then camera is transitioned to third person and zoom out, player spawn in a cave/room/dungeon)&lt;div&gt;&lt;br&gt;&lt;/div&gt;" style="whiteSpace=wrap;html=1;rounded=1;" parent="1" vertex="1">
           <mxGeometry x="150" y="240" width="120" height="190" as="geometry" />
