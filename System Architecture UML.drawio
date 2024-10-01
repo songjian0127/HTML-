@@ -63,7 +63,7 @@
             <mxPoint x="415" y="208" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="Yk73MCUNpO8sZszW2BRb-36" value="Create User" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="Yk73MCUNpO8sZszW2BRb-35">
+        <mxCell id="Yk73MCUNpO8sZszW2BRb-36" value="Create User / Login (Auth0)" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="Yk73MCUNpO8sZszW2BRb-35">
           <mxGeometry x="-0.5529" y="-1" relative="1" as="geometry">
             <mxPoint x="68" as="offset" />
           </mxGeometry>
@@ -74,7 +74,7 @@
             <mxPoint x="162" y="230.9963636363633" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="Yk73MCUNpO8sZszW2BRb-44" value="Return Token" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="Yk73MCUNpO8sZszW2BRb-43">
+        <mxCell id="Yk73MCUNpO8sZszW2BRb-44" value="Return Token + User Access" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="Yk73MCUNpO8sZszW2BRb-43">
           <mxGeometry x="-0.5529" y="-1" relative="1" as="geometry">
             <mxPoint x="-70" as="offset" />
           </mxGeometry>
@@ -85,7 +85,7 @@
             <mxPoint x="667" y="208" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="Yk73MCUNpO8sZszW2BRb-38" value="Record User" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="Yk73MCUNpO8sZszW2BRb-37">
+        <mxCell id="Yk73MCUNpO8sZszW2BRb-38" value="Commit User / Query User" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="Yk73MCUNpO8sZszW2BRb-37">
           <mxGeometry x="-0.5529" y="-1" relative="1" as="geometry">
             <mxPoint x="68" as="offset" />
           </mxGeometry>
@@ -97,28 +97,6 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="Yk73MCUNpO8sZszW2BRb-40" value="Return User ID + User Role" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="Yk73MCUNpO8sZszW2BRb-39">
-          <mxGeometry x="-0.5529" y="-1" relative="1" as="geometry">
-            <mxPoint x="-70" as="offset" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="Yk73MCUNpO8sZszW2BRb-28" value="" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
-          <mxGeometry width="50" height="50" relative="1" as="geometry">
-            <mxPoint x="166" y="270" as="sourcePoint" />
-            <mxPoint x="416" y="270" as="targetPoint" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="Yk73MCUNpO8sZszW2BRb-29" value="Login (Auth0)" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="Yk73MCUNpO8sZszW2BRb-28">
-          <mxGeometry x="-0.5529" y="-1" relative="1" as="geometry">
-            <mxPoint x="68" as="offset" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="Yk73MCUNpO8sZszW2BRb-31" value="" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
-          <mxGeometry width="50" height="50" relative="1" as="geometry">
-            <mxPoint x="415" y="292.6363636363633" as="sourcePoint" />
-            <mxPoint x="165" y="292.6363636363633" as="targetPoint" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="Yk73MCUNpO8sZszW2BRb-32" value="Return Token" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="Yk73MCUNpO8sZszW2BRb-31">
           <mxGeometry x="-0.5529" y="-1" relative="1" as="geometry">
             <mxPoint x="-70" as="offset" />
           </mxGeometry>
