@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 Edg/129.0.0.0" version="24.7.16">
   <diagram name="Page-1" id="0783ab3e-0a74-02c8-0abd-f7b4e66b4bec">
-    <mxGraphModel dx="1542" dy="872" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" background="none" math="0" shadow="0">
+    <mxGraphModel dx="1336" dy="756" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" background="none" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -75,7 +75,7 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="Yk73MCUNpO8sZszW2BRb-63" value="Web Scrape Service" style="rounded=0;whiteSpace=wrap;html=1;" parent="1c1d494c118603dd-3" vertex="1">
-          <mxGeometry x="85" y="230" width="80" height="367" as="geometry" />
+          <mxGeometry x="85" y="230" width="80" height="390" as="geometry" />
         </mxCell>
         <mxCell id="Yk73MCUNpO8sZszW2BRb-61" value="Request Task Status" style="endArrow=classic;html=1;rounded=0;" parent="1c1d494c118603dd-3" edge="1">
           <mxGeometry width="50" height="50" relative="1" as="geometry">
@@ -90,12 +90,12 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="Yk73MCUNpO8sZszW2BRb-68" value="Data Engineering Service" style="rounded=0;whiteSpace=wrap;html=1;" parent="1c1d494c118603dd-3" vertex="1">
-          <mxGeometry x="85" y="637" width="80" height="60" as="geometry" />
+          <mxGeometry x="85" y="667" width="80" height="60" as="geometry" />
         </mxCell>
         <mxCell id="Yk73MCUNpO8sZszW2BRb-72" value="Commit Data" style="endArrow=classic;html=1;rounded=0;" parent="1c1d494c118603dd-3" edge="1">
           <mxGeometry width="50" height="50" relative="1" as="geometry">
-            <mxPoint x="170" y="667" as="sourcePoint" />
-            <mxPoint x="370" y="667" as="targetPoint" />
+            <mxPoint x="170" y="699" as="sourcePoint" />
+            <mxPoint x="370" y="699" as="targetPoint" />
           </mxGeometry>
         </mxCell>
         <mxCell id="Yk73MCUNpO8sZszW2BRb-54" value="" style="endArrow=classic;html=1;rounded=0;" parent="1c1d494c118603dd-3" edge="1">
@@ -228,7 +228,7 @@
             <mxPoint x="170" y="330" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="i35okyFf97zln8C1mKgF-1" value="Cancel Task" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
+        <mxCell id="i35okyFf97zln8C1mKgF-1" value="Cancel/Delete Task" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
           <mxGeometry width="50" height="50" relative="1" as="geometry">
             <mxPoint x="170" y="617" as="sourcePoint" />
             <mxPoint x="370" y="617" as="targetPoint" />
@@ -274,6 +274,12 @@
           <mxGeometry width="50" height="50" relative="1" as="geometry">
             <mxPoint x="460" y="960" as="sourcePoint" />
             <mxPoint x="660" y="960" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="i35okyFf97zln8C1mKgF-34" value="Return Task Status" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="370" y="640" as="sourcePoint" />
+            <mxPoint x="170" y="640" as="targetPoint" />
           </mxGeometry>
         </mxCell>
       </root>
