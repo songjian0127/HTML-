@@ -34,7 +34,7 @@
           <mxGeometry x="20" y="150" width="90" height="50" as="geometry" />
         </mxCell>
         <mxCell id="Yk73MCUNpO8sZszW2BRb-51" value="Dashboard" style="rounded=0;whiteSpace=wrap;html=1;" parent="1c1d494c118603dd-2" vertex="1">
-          <mxGeometry x="10" y="230" width="110" height="600" as="geometry" />
+          <mxGeometry x="10" y="230" width="110" height="580" as="geometry" />
         </mxCell>
         <mxCell id="Yk73MCUNpO8sZszW2BRb-56" value="Task Creation" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;" parent="1c1d494c118603dd-2" vertex="1">
           <mxGeometry x="20" y="240" width="90" height="270" as="geometry" />
