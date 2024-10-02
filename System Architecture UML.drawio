@@ -153,8 +153,8 @@
         </mxCell>
         <mxCell id="i35okyFf97zln8C1mKgF-37" value="Email Verification" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1c1d494c118603dd-3">
           <mxGeometry width="50" height="50" relative="1" as="geometry">
-            <mxPoint x="80" y="1510" as="sourcePoint" />
-            <mxPoint x="-120" y="1510" as="targetPoint" />
+            <mxPoint x="80" y="1500" as="sourcePoint" />
+            <mxPoint x="-120" y="1500" as="targetPoint" />
           </mxGeometry>
         </mxCell>
         <mxCell id="1c1d494c118603dd-4" value="Database" style="swimlane;html=1;startSize=20;" parent="1c1d494c118603dd-1" vertex="1">
@@ -295,6 +295,12 @@
           <mxGeometry width="50" height="50" relative="1" as="geometry">
             <mxPoint x="170" y="1520" as="sourcePoint" />
             <mxPoint x="370" y="1520" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="i35okyFf97zln8C1mKgF-38" value="Change Password" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="170" y="1560" as="sourcePoint" />
+            <mxPoint x="370" y="1560" as="targetPoint" />
           </mxGeometry>
         </mxCell>
       </root>
