@@ -43,7 +43,7 @@
           <mxGeometry x="15" y="1180" width="100" height="150" as="geometry" />
         </mxCell>
         <mxCell id="Gfuh701zvrln5GMxDdGO-1" value="User Profile" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1c1d494c118603dd-2">
-          <mxGeometry x="15" y="1000" width="100" height="150" as="geometry" />
+          <mxGeometry x="15" y="1000" width="100" height="90" as="geometry" />
         </mxCell>
         <mxCell id="Gfuh701zvrln5GMxDdGO-2" value="Logout" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1c1d494c118603dd-2">
           <mxGeometry x="20" y="1380" width="90" height="40" as="geometry" />
@@ -221,7 +221,7 @@
             <mxPoint x="660" y="208" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="Yk73MCUNpO8sZszW2BRb-38" value="Commit User / Query User" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="Yk73MCUNpO8sZszW2BRb-37" vertex="1" connectable="0">
+        <mxCell id="Yk73MCUNpO8sZszW2BRb-38" value="Create User / Query User" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="Yk73MCUNpO8sZszW2BRb-37" vertex="1" connectable="0">
           <mxGeometry x="-0.5529" y="-1" relative="1" as="geometry">
             <mxPoint x="55" as="offset" />
           </mxGeometry>
@@ -338,6 +338,42 @@
             <mxPoint x="460" y="1590" as="sourcePoint" />
             <mxPoint x="660" y="1590" as="targetPoint" />
             <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gfuh701zvrln5GMxDdGO-9" value="Update User Details" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="170" y="1070" as="sourcePoint" />
+            <mxPoint x="660" y="1070" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gfuh701zvrln5GMxDdGO-10" value="Return User Details" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="660" y="1098" as="sourcePoint" />
+            <mxPoint x="170" y="1098" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gfuh701zvrln5GMxDdGO-11" value="Assign User Role / Permission" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="170" y="1240" as="sourcePoint" />
+            <mxPoint x="660" y="1240" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gfuh701zvrln5GMxDdGO-12" value="Return User Role / Permission" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="660" y="1270" as="sourcePoint" />
+            <mxPoint x="170" y="1270" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gfuh701zvrln5GMxDdGO-13" value="Disable User" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="170" y="1300" as="sourcePoint" />
+            <mxPoint x="660" y="1300" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Gfuh701zvrln5GMxDdGO-14" value="Return User Status" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="660" y="1330" as="sourcePoint" />
+            <mxPoint x="170" y="1330" as="targetPoint" />
           </mxGeometry>
         </mxCell>
       </root>
