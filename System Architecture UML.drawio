@@ -169,7 +169,7 @@
         <mxCell id="Gfuh701zvrln5GMxDdGO-24" value="Profile Service" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1c1d494c118603dd-3">
           <mxGeometry x="80" y="875" width="85" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="Gfuh701zvrln5GMxDdGO-27" value="Profile Service" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1c1d494c118603dd-3">
+        <mxCell id="Gfuh701zvrln5GMxDdGO-27" value="User Management Service" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1c1d494c118603dd-3">
           <mxGeometry x="80" y="985" width="85" height="110" as="geometry" />
         </mxCell>
         <mxCell id="Gfuh701zvrln5GMxDdGO-31" value="Return User Status" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1c1d494c118603dd-3">
