@@ -448,7 +448,7 @@
             <mxPoint x="660" y="617" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="i35okyFf97zln8C1mKgF-4" value="Request download Data" style="endArrow=classic;html=1;rounded=0;" parent="1" edge="1">
+        <mxCell id="i35okyFf97zln8C1mKgF-4" value="Request Download Data" style="endArrow=classic;html=1;rounded=0;" parent="1" edge="1">
           <mxGeometry width="50" height="50" relative="1" as="geometry">
             <mxPoint x="170" y="560" as="sourcePoint" />
             <mxPoint x="370" y="560" as="targetPoint" />
