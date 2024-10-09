@@ -1,16 +1,9 @@
-9021
-9024
-9311
-9331
-9020
-9417
-9517
-9414
-9321
-6080
-9415
-9900
-9315
-9444
-9820
-9312
+I'm working on my game project.
+
+help me dissect the project into practical tasks and subtasks from start to end.
+
+I'm using Unreal Engine 5 to build this game. It is a student project which is not complicated. It is not expected for student to design/build assets. Using exisiting assets is fine with minor modifications like changing materials.
+
+The game is 3rd person rogue like.
+
+Player Character
