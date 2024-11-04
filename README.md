@@ -1,9 +1,4 @@
-I'm working on my game project.
-
-help me dissect the project into practical tasks and subtasks from start to end.
-
-I'm using Unreal Engine 5 to build this game. It is a student project which is not complicated. It is not expected for student to design/build assets. Using exisiting assets is fine with minor modifications like changing materials.
-
-The game is 3rd person rogue like.
-
-Player Character
+I don’t trust stairs because they’re always up to something.
+Two windmills are standing in a wind farm. One asks, “What’s your favorite kind of music?” The other says, “I’m a big metal fan.”
+What's the difference between a hippo and a zippo? One is really heavy and the other is a little lighter!
+What’s America's favorite soda? Mini soda.
