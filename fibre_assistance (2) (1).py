@@ -97,10 +97,15 @@ def rows_have_alert(headers, rows_subset):
 
 class CrossSectionCache:
     def __init__(self):
-        # Create cache folder in same directory as script or exe
-        self.base_dir = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(sys.argv[0])))
-        self.cache_dir = os.path.join(self.base_dir, "_fibre_cache")
+        # Put cache next to the running app (works for .exe and .py)
+        if getattr(sys, "frozen", False):
+            base_dir = os.path.dirname(sys.executable)  # folder of the .exe
+        else:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+
+        self.cache_dir = os.path.join(base_dir, "_fibre_cache")
         os.makedirs(self.cache_dir, exist_ok=True)
+
         self.index_file = os.path.join(self.cache_dir, "index.json")
         self._index = self._load_index()
         atexit.register(self.clear)
@@ -122,10 +127,10 @@ class CrossSectionCache:
             pass
 
     def clear(self):
-        """Delete all cache files (triggered on Process again or app close)."""
+        # Remove cached files when Process is clicked again or app closes
         try:
-            for f in os.listdir(self.cache_dir):
-                fp = os.path.join(self.cache_dir, f)
+            for name in os.listdir(self.cache_dir):
+                fp = os.path.join(self.cache_dir, name)
                 try:
                     os.remove(fp)
                 except Exception:
@@ -136,7 +141,6 @@ class CrossSectionCache:
             pass
 
     def put_html(self, seg_id, html_text):
-        """Save crawled HTML to cache."""
         path = os.path.join(self.cache_dir, f"{seg_id}.html")
         try:
             with open(path, "w", encoding="utf-8") as f:
@@ -155,7 +159,7 @@ class CrossSectionCache:
 
     def has(self, seg_id):
         meta = self._index.get(seg_id)
-        return meta and os.path.exists(meta.get("path", ""))
+        return bool(meta) and os.path.exists(meta.get("path", ""))
 
     def get_html(self, seg_id):
         meta = self._index.get(seg_id)
@@ -1054,13 +1058,28 @@ class FibreProcessor:
             messagebox.showwarning("No SEGMENT_ID", "SEGMENT_ID not found for this cable.")
             return
 
-        # OPEN FROM CACHE ONLY (no new crawling)
+        # NEW: cache-first, then one-off live fetch fallback so UI always loads
         html_text = self.cs_cache.get_html(seg_id)
         if not html_text:
-            messagebox.showerror("No Cached Data", "Cross section data not loaded yet. Click Process first.")
-            return
+            try:
+                resp = requests.get(
+                    f"{VMR_Cable_URL}{seg_id}",
+                    headers={"User-Agent": "Mozilla/5.0 (FibreAssist/1.0)"},
+                    timeout=30,
+                    verify=True
+                )
+                resp.raise_for_status()
+                self.cs_cache.put_html(seg_id, resp.text)  # store for future opens
+                html_text = resp.text
+            except Exception:
+                messagebox.showerror(
+                    "No Cached Data",
+                    "Cross section data not loaded yet and live fetch failed. "
+                    "Click Process first, or check network access."
+                )
+                return
 
-        # Build viewer window from cached content
+        # Build viewer window from cached (or freshly fetched) content
         try:
             headers, rows = parse_gridview2(html_text)
         except Exception as e:
@@ -1078,7 +1097,6 @@ class FibreProcessor:
         table_frame = ttk.Frame(win)
         table_frame.pack(fill="both", expand=True, padx=10, pady=(0,10))
         tree = ttk.Treeview(table_frame, columns=tuple(headers or []), show="headings", height=24)
-        # (already CHANGED previously): thicker Tk scrollbars to match Fibre Check
         vsb = tk.Scrollbar(table_frame, orient="vertical", command=tree.yview, width=18)
         hsb = tk.Scrollbar(table_frame, orient="horizontal", command=tree.xview, width=18)
         tree.configure(yscroll=vsb.set, xscroll=hsb.set)
@@ -1091,7 +1109,6 @@ class FibreProcessor:
 
         for col in (headers or []):
             tree.heading(col, text=col)
-            # initial width; we will auto-size after inserting rows
             tree.column(col, width=max(90, min(360, len(col)*10)), anchor="center", stretch=False)
         self.tree.bind("<Motion>", lambda e: "break" if self.tree.identify_region(e.x, e.y) == "separator" else None)
 
@@ -1107,7 +1124,6 @@ class FibreProcessor:
             vals = r if len(r) == len(headers) else (r + [""]*(len(headers)-len(r)))[:len(headers)]
             tree.insert("", "end", values=vals, tags=("alert",) if alert else ())
 
-        # NEW: auto-fit columns to content just like Fibre Check
         def _autosize_columns(t):
             style = ttk.Style()
             body_font_name = style.lookup("Treeview", "font") or "TkDefaultFont"
@@ -1129,8 +1145,8 @@ class FibreProcessor:
                 t.column(col, width=computed, minwidth=computed, stretch=False)
 
         _autosize_columns(tree)
-
         win.bind("<Escape>", lambda e: win.destroy())
+
 
     def on_select(self, event):
         selection = self.tree.selection()
@@ -1347,10 +1363,13 @@ class FibreProcessor:
         performs the one-time crawl + tray alert/cache logic, and adds DB-backed
         commentary (Cable/Splice) + fibre-type vs tube guidance.
         """
-        import sqlite3
-        import requests
+        # NEW: enforce Fibre Type selection
+        ft = (self.fibre_type.get() or "").strip()
+        if ft not in {"Local", "Junction", "Trunk"}:
+            messagebox.showerror("Select Fibre Type", "Please select a Fibre Type (Local / Junction / Trunk) before clicking Process.")
+            return
 
-        # ----- Build processed_data + selected_fibres (from your existing CSV parser)
+        # ----- Build processed_data + selected_fibres
         input_file = (self.input_entry.get() or "").strip()
         if not input_file:
             messagebox.showerror("Error", "Please select an input CSV file first.")
