@@ -16,6 +16,16 @@ import tempfile
 import atexit
 import ctypes
 
+# >>> UPDATED: robust HTML parser selection for .exe builds
+from bs4 import BeautifulSoup
+
+# prefer lxml if present (faster), else fall back to stdlib html.parser
+_BS_PARSER = "lxml"
+try:
+    import lxml  # noqa: F401
+except Exception:
+    _BS_PARSER = "html.parser"
+
 # >>> NEW: cross-section helpers (single source of truth for parse/filter/alerts)
 
 VMR_BASE_URL = "https://cadprdwebw001.optus.com.au/vmr/"
@@ -55,10 +65,40 @@ def _table_extract(tbl):
         rows.append(row)
     return headers, rows
 
-def parse_gridview2(html_text):
-    soup = BeautifulSoup(html_text, "lxml")
-    grid2 = soup.find(id="GridView2")
-    return _table_extract(grid2)
+# >>> UPDATED: use the robust parser choice above
+def parse_gridview2(html_text: str):
+    """
+    Extract headers/rows from the VMR cross-section page.
+    Works with either lxml (if bundled) or stdlib html.parser (fallback).
+    """
+    soup = BeautifulSoup(html_text, _BS_PARSER)
+
+    # Adjust selectors to match your page (unchanged from your version):
+    table = soup.find("table", id="GridView2") or soup.find("table", {"class": "GridView2"})
+    if not table:
+        return [], []
+
+    # headers
+    headers = []
+    thead = table.find("thead")
+    if thead:
+        ths = thead.find_all("th")
+        headers = [th.get_text(strip=True) for th in ths]
+    if not headers:
+        first_tr = table.find("tr")
+        if first_tr:
+            headers = [th.get_text(strip=True) for th in first_tr.find_all(["th", "td"])]
+
+    # body rows
+    rows = []
+    for tr in table.find_all("tr"):
+        tds = tr.find_all("td")
+        if not tds:
+            continue
+        rows.append([td.get_text(strip=True) for td in tds])
+
+    return headers, rows
+
 
 def filter_rows_by_tray_range(rows, tray_range_text):
     # tray_range_text like "1-6" (1-based inclusive)
@@ -260,7 +300,7 @@ def _extract_table(table):
     return headers, rows
 
 def _parse_gridview2(html: str):
-    soup = BeautifulSoup(html, "lxml")
+    soup = BeautifulSoup(html, _BS_PARSER)
     grid2 = soup.find(id="GridView2")
     return _extract_table(grid2)
 
