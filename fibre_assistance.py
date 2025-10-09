@@ -1607,8 +1607,10 @@ class FibreProcessor:
         # Columns: added "IOF" and "DWDM/T_ found" between Tube and Fibre Tray
         columns = (
             "A-End", "Fibre Cable", "B-End", "Connect/Disconnect",
-            "EO", "Length", "Tube", "IOF", "DWDM/T_ found", "Fibre Tray", "Commentary"
+            "EO", "Length", "Tube", "RS Type", "IOF", "DWDM/T_ found",
+            "Fibre Tray", "Commentary"
         )
+
         self.tree = ttk.Treeview(tree_frame, columns=columns, show='headings')
 
         # More-visible scrollbars
@@ -1692,26 +1694,25 @@ class FibreProcessor:
     # ---------------------------------------------------------------------
     # Helper: auto-size Treeview columns to content width
     # ---------------------------------------------------------------------
-    def _autosize_columns(tree, min_width=80, max_width=400):
-        """
-        Adjust each Treeview column width based on max text length in that column.
-        Keeps width within [min_width, max_width].
-        """
-        import tkinter.font as tkfont
+    from tkinter import font as tkfont
 
-        font = tkfont.nametofont(tree.cget("font"))
+    def _autosize_columns(self, tree):
+        # get font from the style instead of widget
+        style = ttk.Style()
+        try:
+            font_name = style.lookup("Treeview", "font")
+            if not font_name:
+                font_name = "TkDefaultFont"
+            font = tkfont.nametofont(font_name)
+        except Exception:
+            font = tkfont.nametofont("TkDefaultFont")
+
         for col in tree["columns"]:
-            # header width
-            max_len = len(str(col))
-            # sample up to 200 rows for performance
-            for iid in tree.get_children("")[:200]:
-                val = str(tree.set(iid, col))
-                if len(val) > max_len:
-                    max_len = len(val)
-            # estimate pixel width
-            px = font.measure(" " * (max_len + 2))
-            tree.column(col, width=min(max_width, max(min_width, px)))
-
+            max_width = font.measure(col)
+            for item in tree.get_children():
+                text = str(tree.set(item, col))
+                max_width = max(max_width, font.measure(text))
+            tree.column(col, width=max_width + 20)
 
     def on_tree_double_click(self, event):
         item = self.tree.identify_row(event.y)
@@ -1745,6 +1746,15 @@ class FibreProcessor:
             tray_idx = -1
         tray_range = (values[tray_idx] if 0 <= tray_idx < len(values) else "").strip()
 
+        # ---- HARD GUARDS (as required) ----
+        if not self.crawl_enabled.get():
+            messagebox.showinfo("Connect VMR is OFF", "Turn on 'Connect VMR' to open the cross section.")
+            return
+        if not tray_range:
+            # Display rule hides tray unless current OR previous displayed row has C/D.
+            # When hidden, do not open cross section.
+            messagebox.showinfo("No Fibre Tray", "This row does not show a Fibre Tray value. Cross section opens only when a tray value is displayed.")
+            return
         if not seg_id:
             messagebox.showwarning("No SEGMENT_ID", "SEGMENT_ID not found for this cable.")
             return
@@ -1766,74 +1776,104 @@ class FibreProcessor:
             messagebox.showerror("Parse Error", str(e))
             return
 
-        # Full table when row had alert; else filtered by tray_range
-        full_view = "cs_alert" in (self.tree.item(item, "tags") or ())
-        subset = rows[:] if full_view else filter_rows_by_tray_range(rows, tray_range)
+        # ---- Apply your rule *without* inferring tray when hidden ----
+        # Decide full vs tray-filtered using UI column "DWDM/T_ found" if present; else legacy tag.
+        try:
+            dwdm_idx = columns.index("DWDM/T_ found")
+        except ValueError:
+            dwdm_idx = -1
+        val_dwdm = (values[dwdm_idx] if 0 <= dwdm_idx < len(values) else "").strip().upper()
+        row_tags = self.tree.item(item, "tags") or ()
+        has_alert = (val_dwdm == "Y") or ("cs_alert" in row_tags)
+
+        # Filter helper (expects "N-M")
+        def _filter_rows_by_tray_range(_rows, rng):
+            try:
+                a, b = [int(x) for x in str(rng).split("-", 1)]
+            except Exception:
+                return _rows[:]  # if malformed, safest to show full
+            lo, hi = min(a, b), max(a, b)
+
+            # find a "fibre number" column heuristically
+            import re
+            # pick the column with the most 1..N integers
+            best_ci, best_hits = None, -1
+            for ci in range(len(headers or [])):
+                hits = 0
+                for r in _rows:
+                    if ci < len(r):
+                        m = re.search(r"\b(\d{1,4})\b", str(r[ci]))
+                        if m:
+                            hits += 1
+                if hits > best_hits:
+                    best_ci, best_hits = ci, hits
+
+            if best_ci is None or best_hits <= 0:
+                return _rows[:]  # cannot determine fibre column; show full
+
+            def in_tray(n):
+                if n is None:
+                    return False
+                tray_no = ((n - 1) // 6) + 1
+                return ((tray_no - 1) * 6 + 1) >= lo and ((tray_no - 1) * 6 + 6) <= hi
+
+            out = []
+            for r in _rows:
+                m = re.search(r"\b(\d{1,4})\b", str(r[best_ci])) if best_ci < len(r) else None
+                n = int(m.group(1)) if m else None
+                if n is not None:
+                    # keep fibres whose tray bucket falls fully within the range
+                    if ((n - 1) // 6) * 6 + 1 >= lo and ((n - 1) // 6) * 6 + 6 <= hi:
+                        out.append(r)
+            return out or _rows[:]  # never return empty silently
+
+        full_view = has_alert
+        subset = rows[:] if full_view else _filter_rows_by_tray_range(rows, tray_range)
 
         # Drop any "Tag" column coming from VMR
-        def strip_tag_col(headers, rows):
-            if not headers:
-                return headers, rows
+        def strip_tag_col(_headers, _rows):
+            if not _headers:
+                return _headers, _rows
             try:
-                i = [h.strip().lower() for h in headers].index("tag")
+                i = [h.strip().lower() for h in _headers].index("tag")
             except ValueError:
-                return headers, rows
-            new_headers = headers[:i] + headers[i+1:]
-            new_rows = [r[:i] + r[i+1:] if i < len(r) else r[:] for r in rows]
+                return _headers, _rows
+            new_headers = _headers[:i] + _headers[i+1:]
+            new_rows = [r[:i] + r[i+1:] if i < len(r) else r[:] for r in _rows]
             return new_headers, new_rows
 
         headers, subset = strip_tag_col(headers, subset)
 
-        # --- Find the fibre-number column robustly; compute Tray #(1..N) per 6 fibres ---
-        def find_fibre_col_and_numbers(headers, rows):
-            import re
-            if not headers or not rows:
-                return None, []
+        # --- Add "Tray" column as first col in popup ---
+        import re as _re
+        def _fibre_num_of_row(r, hdrs):
+            # best-effort: choose the column with most integers (same as above)
+            best_ci, best_hits = None, -1
+            for ci in range(len(hdrs or [])):
+                hits = 0
+                for rr in subset:
+                    if ci < len(rr):
+                        mm = _re.search(r"\b(\d{1,4})\b", str(rr[ci]))
+                        if mm:
+                            hits += 1
+                if hits > best_hits:
+                    best_ci, best_hits = ci, hits
+            if best_ci is None:
+                return None
+            mm = _re.search(r"\b(\d{1,4})\b", str(r[best_ci])) if best_ci < len(r) else None
+            return int(mm.group(1)) if mm else None
 
-            candidates = list(range(len(headers)))
-            # score columns by "how numeric they look"
-            scores = []
-            for ci in candidates:
-                col_vals = [r[ci] for r in rows if ci < len(r)]
-                nums = []
-                good = 0
-                for v in col_vals:
-                    m = re.search(r"\b(\d{1,4})\b", str(v))
-                    if m:
-                        nums.append(int(m.group(1)))
-                        good += 1
-                # prefer increasing small ints, lots of matches
-                uniq = len(set(nums))
-                contiguous_hint = 1 if nums and min(nums) == 1 else 0
-                scores.append((good, uniq, contiguous_hint, -ci, ci))
-            scores.sort(reverse=True)
-            if not scores or scores[0][0] == 0:
-                return None, []
-            best_ci = scores[0][-1]
-            # extract numbers
-            nums = []
-            for r in rows:
-                if best_ci < len(r):
-                    m = re.search(r"\b(\d{1,4})\b", str(r[best_ci]))
-                    nums.append(int(m.group(1)) if m else None)
-                else:
-                    nums.append(None)
-            return best_ci, nums
-
-        fibre_col, fibre_nums = find_fibre_col_and_numbers(headers, subset)
-
-        def tray_of(n):
+        def _tray_of(n):
             try:
                 return str(((int(n) - 1) // 6) + 1)
             except Exception:
                 return ""
 
-        # Build rows with Tray # as the first column
         headers2 = ["Tray"] + list(headers or [])
         rows2 = []
-        for idx, r in enumerate(subset):
-            n = fibre_nums[idx] if fibre_col is not None and idx < len(fibre_nums) else None
-            rows2.append([tray_of(n)] + r)
+        for r in subset:
+            n = _fibre_num_of_row(r, headers)
+            rows2.append([_tray_of(n)] + r)
 
         # ---- UI window ----
         win = tk.Toplevel(self.root)
@@ -1876,9 +1916,9 @@ class FibreProcessor:
         for r in rows2:
             tree.insert("", "end", values=r, tags=("alert",) if row_is_alert(r) else ())
 
+        # NOTE: this calls the INSTANCE method; ensure its signature is def _autosize_columns(self, tree, ...)
         self._autosize_columns(tree)
         win.bind("<Escape>", lambda e: win.destroy())
-
 
 
     def on_select(self, event):
@@ -1950,6 +1990,7 @@ class FibreProcessor:
 
         # Find the index where the Fibre Trace Details start.
         start_index = None
+        self.show_next_tray = False
         for i, row in enumerate(data):
             if any("Fibre Trace Details" in cell for cell in row):
                 start_index = i + 1
@@ -1964,8 +2005,9 @@ class FibreProcessor:
         headers = [
             "Cable#", "A-End", "Fibre Cable", "B-End",
             "Connect/Disconnect", "EO", "Length",
-            "Tube", "IOF", "DWDM/T_ found", "Fibre Tray"
+            "Tube", "RS Type", "IOF", "DWDM/T_ found", "Fibre Tray"
         ]
+
         data[0] = headers
 
         processed_data = [headers]
@@ -2312,7 +2354,11 @@ class FibreProcessor:
         headers = ["Cable#", "A-End", "Fibre Cable", "B-End", "Connect/Disconnect", "EO", "Length", "Tube", "Fibre Tray"]
         We now also honor parsed values from 'Name' (length, fibres, WK/SP) when available.
         """
-        headers = ["Cable#", "A-End", "Fibre Cable", "B-End", "Connect/Disconnect", "EO", "Length", "Tube", "Fibre Tray"]
+        headers = [
+            "Cable#", "A-End", "Fibre Cable", "B-End",
+            "Connect/Disconnect", "EO", "Length",
+            "Tube", "RS Type", "IOF", "DWDM/T_ found", "Fibre Tray"
+        ]
         out = [headers]
         selected = []
 
@@ -2463,17 +2509,39 @@ class FibreProcessor:
             segid_cache = {}
             seg_ids_needed = set()  # ensure uniqueness
 
-            # Resolve column positions from processed_data header row
-            # ["Cable#", "A-End", "Fibre Cable", "B-End", "Connect/Disconnect", "EO", "Length", "Tube", "IOF", "DWDM/T_ found", "Fibre Tray"]
+            # Resolve column positions from processed_data header row (schema-agnostic)
             pd_headers = processed_data[0] if processed_data and processed_data[0] else []
+
             def _idx(col, default=None):
                 try:
                     return pd_headers.index(col)
                 except ValueError:
                     return default
 
-            name_col = _idx("Fibre Cable", 2)
-            tray_col = _idx("Fibre Tray", 10)
+            name_col = _idx("Fibre Cable", 2)     # fallback to 2 if header isn't found
+            tray_col = _idx("Fibre Tray")         # may be None in odd cases
+
+            # NEW: derive tray even if the display cell is blank
+            def _tray_from_row(row):
+                # 1) use the cell if present
+                if tray_col is not None and row and len(row) > tray_col:
+                    t = (row[tray_col] or "").strip()
+                    if t:
+                        return t
+
+                # 2) else derive from the selected fibre number in "Fibre Cable" (e.g., "... (#37)")
+                try:
+                    fc = (row[name_col] if name_col is not None and len(row) > name_col else "") or ""
+                except Exception:
+                    fc = ""
+                m = re.search(r'\(#\s*(\d+)\s*\)', str(fc))
+                if m:
+                    sel = int(m.group(1))
+                    if sel > 0:
+                        start = ((sel - 1) // 6) * 6 + 1
+                        end = start + 5
+                        return f"{start}-{end}"
+                return ""
 
             def _segid_for_cable(cable_name):
                 key = (cable_name or "").strip()
@@ -2494,21 +2562,27 @@ class FibreProcessor:
 
             for i in range(1, len(processed_data)):
                 row = processed_data[i]
-                if not row or len(row) <= max(name_col, tray_col):
+                # guard if headers missing or row too short
+                if name_col is None:
                     continue
-                fibre_tray = (row[tray_col] or "").strip()
+                if not row or len(row) <= name_col:
+                    continue
+
+                fibre_tray = _tray_from_row(row)        # <-- NEW robust tray derivation
                 if not fibre_tray:
                     continue
+
                 cable_name = row[name_col]
                 seg_id = _segid_for_cable(cable_name)
                 if not seg_id:
                     continue
+
                 seg_by_row_index[i] = seg_id
                 tray_by_row_index[i] = fibre_tray
+
                 if seg_id not in seg_ids_needed:
                     seg_ids_needed.add(seg_id)
                     to_crawl.append((seg_id, VMR_Cable_URL + seg_id))
-
 
 
             # ===== 4) Optional cross-section crawling (Connect VMR) =====
@@ -2581,28 +2655,53 @@ class FibreProcessor:
                 row = processed_data[i]
 
                 # Build the row for display (your code may already do this)
+                # === REPLACE START: build display row by header name (no hard indices) ===
+                pd_headers = processed_data[0] if processed_data and processed_data[0] else []
+
+                def _idx(name, default=None):
+                    try:
+                        return pd_headers.index(name)
+                    except ValueError:
+                        return default
+
+                def _val(r, i):
+                    if i is None:
+                        return ""
+                    return r[i] if (0 <= i < len(r)) else ""
+
+                a_end_idx      = _idx("A-End", 1)
+                fibre_idx      = _idx("Fibre Cable", 2)
+                b_end_idx      = _idx("B-End", 3)
+                cd_idx         = _idx("Connect/Disconnect", 4)
+                eo_idx         = _idx("EO", 5)
+                length_idx     = _idx("Length", 6)
+                tube_idx       = _idx("Tube", 7)
+                rs_type_idx_pd = _idx("RS Type")              # may be None if header not present
+                iof_idx_pd     = _idx("IOF")                  # may be None if header not present
+                dwdm_idx_pd    = _idx("DWDM/T_ found")        # may be None if header not present
+                tray_idx_pd    = _idx("Fibre Tray")           # may be None if header not present
+
                 display_row = [
-                    row[1],   # A-End
-                    row[2],   # Fibre Cable
-                    row[3],   # B-End
-                    row[4],   # Connect/Disconnect
-                    row[5],   # EO
-                    row[6],   # Length
-                    row[7],   # Tube
-                    row[8],   # IOF   (placeholder; will be filled below)
-                    row[9],   # DWDM/T_ found (placeholder; will be filled below)
-                    row[10],  # Fibre Tray
-                    ""        # Commentary
+                    _val(row, a_end_idx),          # A-End
+                    _val(row, fibre_idx),          # Fibre Cable
+                    _val(row, b_end_idx),          # B-End
+                    _val(row, cd_idx),             # Connect/Disconnect
+                    _val(row, eo_idx),             # EO
+                    _val(row, length_idx),         # Length
+                    _val(row, tube_idx),           # Tube
+                    _val(row, rs_type_idx_pd),     # RS Type (placeholder; will be filled if C/D present)
+                    _val(row, iof_idx_pd),         # IOF (placeholder; will be filled later)
+                    _val(row, dwdm_idx_pd),        # DWDM/T_ found (placeholder; will be filled later)
+                    _val(row, tray_idx_pd),        # Fibre Tray
+                    ""                             # Commentary
                 ]
                 item_id = self.tree.insert("", "end", values=display_row)
 
-                # Stash any per-row metadata (segment id, etc.) if you do that elsewhere:
+                # Stash any per-row metadata
                 seg_id = seg_by_row_index.get(i, "")
                 self.row_meta[item_id] = {"segment_id": seg_id}
 
-            # ------------------------------------------------------------
-                # These index lookups are needed by BOTH D.2 and D.3 sections:
-                # ------------------------------------------------------------
+                # Indices for writing back into the Treeview (UI) later in this loop
                 columns = self.tree["columns"]
                 try:
                     commentary_idx = columns.index("Commentary")
@@ -2616,18 +2715,79 @@ class FibreProcessor:
                     dwdm_idx = columns.index("DWDM/T_ found")
                 except ValueError:
                     dwdm_idx = None
+                try:
+                    rs_type_ui_idx = columns.index("RS Type")
+                except ValueError:
+                    rs_type_ui_idx = None
 
-                fibre_cable = row[2]
-                a_end = row[1]
-                b_end = row[3]
+                # Normalized values for subsequent logic
+                fibre_cable  = _val(row, fibre_idx)
+                a_end        = _val(row, a_end_idx)
+                b_end        = _val(row, b_end_idx)
+                connect_disc = _val(row, cd_idx)
+                tube_value   = _val(row, tube_idx)
+                # === REPLACE END ===
+
 
                 tags = []
 
                 # === DWDM/T_ label based on cached cross-section alert ===
-                # processed_data headers: [..., "Tube", "IOF", "DWDM/T_ found", "Fibre Tray"]
-                tray_str = (row[10] if len(row) > 10 else "") or ""
-                # Prefer the tray we mapped earlier during crawl prep:
-                tray_str = tray_by_row_index.get(i, tray_str)
+                # Look up Fibre Tray by header name (resilient to column order)
+                pd_headers = processed_data[0] if processed_data and processed_data[0] else []
+                try:
+                    tray_col_pd = pd_headers.index("Fibre Tray")
+                except ValueError:
+                    tray_col_pd = len(row) - 2  # safe fallback
+
+                # Robust tray string (prefer mapped tray, else from row by header name)
+                try:
+                    tray_col_pd = pd_headers.index("Fibre Tray")
+                except ValueError:
+                    tray_col_pd = tray_idx_pd  # may be None; safe with _val()
+                tray_str = tray_by_row_index.get(i, "") or _val(row, tray_col_pd)
+
+                # ---- Enforce DISPLAY rule for Fibre Tray column (forward-peek) ----
+                # If current row has non-empty Connect/Disconnect, show tray for current + next row.
+                def _get_cd_from_src_row(r):
+                    try:
+                        cd_idx = pd_headers.index("Connect/Disconnect")
+                    except ValueError:
+                        cd_idx = 4  # fallback
+                    return (str(_val(r, cd_idx) or "").strip())
+
+                curr_cd = _get_cd_from_src_row(row)
+
+                # Decide whether to show for this row
+                allow_tray = bool(curr_cd) or bool(self.show_next_tray)
+                display_tray = tray_str if allow_tray else ""
+
+                # Update the UI cell
+                try:
+                    tray_ui_idx = columns.index("Fibre Tray")
+                except ValueError:
+                    tray_ui_idx = None
+                if tray_ui_idx is not None:
+                    current_vals = list(self.tree.item(item_id, "values"))
+                    while len(current_vals) <= tray_ui_idx:
+                        current_vals.append("")
+                    current_vals[tray_ui_idx] = display_tray
+                    self.tree.item(item_id, values=tuple(current_vals))
+
+                # Arm "show next" flag if current has C/D
+                self.show_next_tray = bool(curr_cd)
+
+
+                # >>> NEW: actually put display_tray into the UI cell <<<
+                try:
+                    tray_ui_idx = columns.index("Fibre Tray")
+                except ValueError:
+                    tray_ui_idx = None
+                if tray_ui_idx is not None:
+                    current_vals = list(self.tree.item(item_id, "values"))
+                    while len(current_vals) <= tray_ui_idx:
+                        current_vals.append("")
+                    current_vals[tray_ui_idx] = display_tray
+                    self.tree.item(item_id, values=tuple(current_vals))
 
                 has_trunk = False
                 if seg_id and tray_str and self.cs_cache:
@@ -2731,6 +2891,19 @@ class FibreProcessor:
                             if (splice_data.get('BUTTSPLICE') or "").upper() == "Y":
                                 commentary_parts.append("Splice Case is Butt Spice")
                             rs_code = (splice_data.get('RS_CODE') or "").upper()
+                            # === NEW: set "RS Type" column with rs_code when Connect/Disconnect is present ===
+                            try:
+                                rs_type_idx = self.tree["columns"].index("RS Type")
+                            except ValueError:
+                                rs_type_idx = None
+
+                            if rs_type_idx is not None:
+                                current_vals = list(self.tree.item(item_id, "values"))
+                                while len(current_vals) <= rs_type_idx:
+                                    current_vals.append("")
+                                current_vals[rs_type_idx] = rs_code  # e.g., "", "RS-NO", "RS-RB", etc.
+                                self.tree.item(item_id, values=tuple(current_vals))
+
                             restricted = (splice_data.get('RESTRICTED') or "").upper() == "Y"
                             if restricted and rs_code != "RS-NO":
                                 commentary_parts.append(f"Splice Case is {rs_code}, ask fibre SME/field Ops for permission.")
@@ -2751,7 +2924,9 @@ class FibreProcessor:
 
                     # Fibre type advisory + CAN2000 mismatch highlight
                     selected_fibre_type = (self.fibre_type.get() or "").strip()
-                    tube = (row[7] or "").strip()
+                    # tube = (row[7] or "").strip()
+                    tube = (tube_value or "").strip()
+
 
                     # 1) Keep your existing advisory text
                     if selected_fibre_type == "Local" and tube == "Trunk":
