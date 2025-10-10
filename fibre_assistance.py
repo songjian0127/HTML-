@@ -1786,46 +1786,24 @@ class FibreProcessor:
         row_tags = self.tree.item(item, "tags") or ()
         has_alert = (val_dwdm == "Y") or ("cs_alert" in row_tags)
 
-        # Filter helper (expects "N-M")
+        # Filter helper (expects "N-M") using 1-based slice of rows
         def _filter_rows_by_tray_range(_rows, rng):
-            try:
-                a, b = [int(x) for x in str(rng).split("-", 1)]
-            except Exception:
-                return _rows[:]  # if malformed, safest to show full
-            lo, hi = min(a, b), max(a, b)
-
-            # find a "fibre number" column heuristically
             import re
-            # pick the column with the most 1..N integers
-            best_ci, best_hits = None, -1
-            for ci in range(len(headers or [])):
-                hits = 0
-                for r in _rows:
-                    if ci < len(r):
-                        m = re.search(r"\b(\d{1,4})\b", str(r[ci]))
-                        if m:
-                            hits += 1
-                if hits > best_hits:
-                    best_ci, best_hits = ci, hits
+            s = (rng or "").strip()
+            if not s:
+                return _rows[:]  # empty/missing -> show all (guarded by UI anyway)
+            m = re.match(r"^\s*(\d+)\s*-\s*(\d+)\s*$", s)
+            if not m:
+                return _rows[:]  # malformed -> safest to show all
+            a, b = int(m.group(1)), int(m.group(2))
+            if a > b:
+                a, b = b, a
+            a = max(1, a)
+            b = min(len(_rows), b)
+            if a > b:
+                return []
+            return _rows[a-1:b]
 
-            if best_ci is None or best_hits <= 0:
-                return _rows[:]  # cannot determine fibre column; show full
-
-            def in_tray(n):
-                if n is None:
-                    return False
-                tray_no = ((n - 1) // 6) + 1
-                return ((tray_no - 1) * 6 + 1) >= lo and ((tray_no - 1) * 6 + 6) <= hi
-
-            out = []
-            for r in _rows:
-                m = re.search(r"\b(\d{1,4})\b", str(r[best_ci])) if best_ci < len(r) else None
-                n = int(m.group(1)) if m else None
-                if n is not None:
-                    # keep fibres whose tray bucket falls fully within the range
-                    if ((n - 1) // 6) * 6 + 1 >= lo and ((n - 1) // 6) * 6 + 6 <= hi:
-                        out.append(r)
-            return out or _rows[:]  # never return empty silently
 
         full_view = has_alert
         subset = rows[:] if full_view else _filter_rows_by_tray_range(rows, tray_range)
@@ -2502,45 +2480,112 @@ class FibreProcessor:
             except Exception:
                 pass
 
-            # ===== 3) Build cross-section crawl list =====
-            to_crawl = []
+            # ===== 3) Build the crawl list ONLY for rows that display a Fibre Tray =====
+            segid_cache = {}
+            seg_ids_needed = set()
             seg_by_row_index = {}
             tray_by_row_index = {}
-            segid_cache = {}
-            seg_ids_needed = set()  # ensure uniqueness
+            to_crawl = []
 
-            # Resolve column positions from processed_data header row (schema-agnostic)
-            pd_headers = processed_data[0] if processed_data and processed_data[0] else []
+            # figure out column positions once
+            pd_headers = [h.strip() for h in processed_data[0]] if processed_data and processed_data[0] else []
+            # make sure the UI has a "Fibre Tray" column
+            try:
+                tray_col = pd_headers.index("Fibre Tray")
+            except ValueError:
+                tray_col = len(pd_headers)
+                pd_headers.append("Fibre Tray")
+                processed_data[0] = pd_headers
+                # make every row at least as wide as the header and add an empty tray cell
+                for k in range(1, len(processed_data)):
+                    processed_data[k] = _ensure_width(processed_data[k], len(pd_headers))
+                    processed_data[k][tray_col] = ""
 
-            def _idx(col, default=None):
-                try:
-                    return pd_headers.index(col)
-                except ValueError:
-                    return default
 
-            name_col = _idx("Fibre Cable", 2)     # fallback to 2 if header isn't found
-            tray_col = _idx("Fibre Tray")         # may be None in odd cases
+            # After pd_headers and tray_col are defined
+            def _ensure_width(row, target_len):
+                # pad the row so it has at least target_len cells
+                if row is None:
+                    return [""] * target_len
+                if len(row) < target_len:
+                    row += [""] * (target_len - len(row))
+                return row
 
-            # NEW: derive tray even if the display cell is blank
+
+            # other columns we need
+            try:
+                name_col = pd_headers.index("Fibre Cable")
+            except ValueError:
+                name_col = None
+
+            try:
+                cd_col = pd_headers.index("Connect/Disconnect")
+            except ValueError:
+                cd_col = None
+
+            # helper: tray range from the "(#n)" selector in the cable name
+            def _fibre_num_from_row(row) -> int | None:
+                # 1) Try to read a fibre number from Connect/Disconnect (first n:n pair → take right side)
+                cd = (row[cd_col] if cd_col is not None and cd_col < len(row) else "") or ""
+                m = re.search(r":\s*(\d+)", cd)
+                if m:
+                    try:
+                        return int(m.group(1))
+                    except Exception:
+                        pass
+
+                # 2) Fallback: from "Fibre Cable" text "(#n)"
+                cable_name = row[name_col] if (name_col is not None and len(row) > name_col) else ""
+                m2 = re.search(r'\(#\s*(\d+)\s*\)', str(cable_name or ""))
+                if m2:
+                    try:
+                        return int(m2.group(1))
+                    except Exception:
+                        pass
+
+                return None
+
+            def _tray_from_fibre_num(n: int) -> str:
+                if not isinstance(n, int) or n <= 0:
+                    return ""
+                start = ((n - 1) // 6) * 6 + 1
+                end = start + 5
+                return f"{start}-{end}"
+
+
+            show_next = False
+            last_tray = ""
+
+            # (add this line)
+            self.show_next_tray = False  # reset forward-peek before rendering rows
+            
+            for i in range(1, len(processed_data)):
+                row = processed_data[i]
+                # make sure row is long enough so we can safely set row[tray_col]
+                row = _ensure_width(row, len(pd_headers))
+                processed_data[i] = row  # keep the padded row
+
+                curr_cd = (row[cd_col] if cd_col is not None and cd_col < len(row) else "")
+                curr_cd = (curr_cd or "").strip()
+
+                # decide display on this row: show when this row has C/D, or it's the immediate next after a C/D row
+                has_cd = bool(curr_cd)
+                if has_cd or show_next:
+                    n = _fibre_num_from_row(row)
+                    row[tray_col] = _tray_from_fibre_num(n) if n else ""
+                    # arm forward-peek only if *this* row has C/D
+                    show_next = has_cd
+                else:
+                    row[tray_col] = ""
+                    show_next = False
+
+            # STRICT: only treat tray as present if the UI column "Fibre Tray" has a non-empty value
             def _tray_from_row(row):
-                # 1) use the cell if present
+                row = _ensure_width(row, len(pd_headers))
                 if tray_col is not None and row and len(row) > tray_col:
                     t = (row[tray_col] or "").strip()
                     if t:
                         return t
-
-                # 2) else derive from the selected fibre number in "Fibre Cable" (e.g., "... (#37)")
-                try:
-                    fc = (row[name_col] if name_col is not None and len(row) > name_col else "") or ""
-                except Exception:
-                    fc = ""
-                m = re.search(r'\(#\s*(\d+)\s*\)', str(fc))
-                if m:
-                    sel = int(m.group(1))
-                    if sel > 0:
-                        start = ((sel - 1) // 6) * 6 + 1
-                        end = start + 5
-                        return f"{start}-{end}"
                 return ""
 
             def _segid_for_cable(cable_name):
@@ -2560,17 +2605,15 @@ class FibreProcessor:
                 segid_cache[key] = segid
                 return segid
 
+            # walk rows and collect ONLY those with a non-empty tray
             for i in range(1, len(processed_data)):
                 row = processed_data[i]
-                # guard if headers missing or row too short
-                if name_col is None:
-                    continue
-                if not row or len(row) <= name_col:
+                if name_col is None or not row or len(row) <= name_col:
                     continue
 
-                fibre_tray = _tray_from_row(row)        # <-- NEW robust tray derivation
+                fibre_tray = _tray_from_row(row)
                 if not fibre_tray:
-                    continue
+                    continue  # Skip rows without visible Fibre Tray
 
                 cable_name = row[name_col]
                 seg_id = _segid_for_cable(cable_name)
@@ -2583,6 +2626,8 @@ class FibreProcessor:
                 if seg_id not in seg_ids_needed:
                     seg_ids_needed.add(seg_id)
                     to_crawl.append((seg_id, VMR_Cable_URL + seg_id))
+
+
 
 
             # ===== 4) Optional cross-section crawling (Connect VMR) =====
@@ -2739,12 +2784,20 @@ class FibreProcessor:
                 except ValueError:
                     tray_col_pd = len(row) - 2  # safe fallback
 
-                # Robust tray string (prefer mapped tray, else from row by header name)
-                try:
-                    tray_col_pd = pd_headers.index("Fibre Tray")
-                except ValueError:
-                    tray_col_pd = tray_idx_pd  # may be None; safe with _val()
-                tray_str = tray_by_row_index.get(i, "") or _val(row, tray_col_pd)
+                # --- FORCE CURRENT-ROW OVERRIDE + PREFILL NEXT, THEN RENDER ---
+                # If current row has Connect/Disconnect, compute its own tray and OVERWRITE any prefill
+                if curr_cd:
+                    # _tray_from_row(row) must return a "N-M" tray range for THIS row's fibre
+                    tray_by_row_index[i] = _tray_from_row(row) or ""
+
+                # If current has C/D, prefill the NEXT row's tray with the same range (rule: show current + next)
+                if curr_cd and i + 1 < len(processed_data):
+                    if tray_by_row_index.get(i):
+                        tray_by_row_index[i + 1] = tray_by_row_index[i]
+
+                # Final value to render: only from our mapping; NEVER fall back to the pandas cell
+                tray_str = tray_by_row_index.get(i, "")
+
 
                 # ---- Enforce DISPLAY rule for Fibre Tray column (forward-peek) ----
                 # If current row has non-empty Connect/Disconnect, show tray for current + next row.
@@ -3111,7 +3164,7 @@ def main():
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("com.fibre.assistance")
 
     root = tk.Tk()
-    root.title("Fibre Assistance v1.9")
+    root.title("Fibre Assistance v1.10")
 
     # try to set the .ico; don’t crash if it’s missing
     try:
