@@ -3,15 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NMO Generator Tool</title>
-    <!-- Tailwind CSS -->
+    <title>NMO Generator Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- XLSX Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     
-    <!-- Config -->
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -21,8 +17,21 @@
                         sans: ['Inter', 'sans-serif'],
                         mono: ['Fira Code', 'monospace'],
                     },
-                    screens: {
-                        'xs': '475px',
+                    colors: {
+                        // Customizing gray to Zinc for a premium feel
+                        gray: {
+                            50: '#fafafa',
+                            100: '#f4f4f5',
+                            200: '#e4e4e7',
+                            300: '#d4d4d8',
+                            400: '#a1a1aa',
+                            500: '#71717a',
+                            600: '#52525b',
+                            700: '#3f3f46',
+                            800: '#27272a',
+                            900: '#18181b',
+                            950: '#09090b',
+                        }
                     }
                 }
             }
@@ -30,132 +39,214 @@
     </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap');
-        body { transition: background-color 0.2s, color 0.2s; }
         
-        /* Ensure cursors behave normally */
-        button { cursor: pointer; }
-        input, textarea, select { cursor: text; }
-        select { cursor: pointer; }
+        body { 
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Smooth inputs */
+        input, select, textarea {
+            transition: all 0.2s ease-in-out;
+        }
         
-        /* Custom Scrollbar for dark mode */
-        .dark ::-webkit-scrollbar { width: 6px; height: 6px; }
-        .dark ::-webkit-scrollbar-track { background: #0f172a; }
-        .dark ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 10px; }
+        .dark ::-webkit-scrollbar-thumb { background: #3f3f46; }
+        .dark ::-webkit-scrollbar-track { background: transparent; }
         
-        /* Hide scrollbar on mobile for cleaner look but keep functionality */
+        /* Utility */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Glass effect class */
+        .glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        .dark .glass {
+            background: rgba(24, 24, 27, 0.7);
+        }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-200 font-sans h-[100dvh] flex flex-col overflow-hidden">
+<body class="bg-gray-50 text-gray-900 dark:bg-black dark:text-gray-200 h-[100dvh] flex flex-col overflow-hidden selection:bg-indigo-500 selection:text-white">
 
-    <!-- Navigation -->
-    <nav class="shrink-0 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 z-50">
-        <div class="w-full px-4">
-            <div class="flex justify-between items-center h-14">
-                <div class="flex items-center gap-2 md:gap-3">
-                    <div class="bg-blue-600 p-1.5 rounded-lg text-white shrink-0">
-                        <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
+    <nav class="shrink-0 border-b border-gray-200 dark:border-gray-800 glass z-50 sticky top-0">
+        <div class="w-full px-4 lg:px-6">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center gap-3">
+                    <div class="bg-gradient-to-br from-indigo-500 to-violet-600 p-2 rounded-xl text-white shadow-lg shadow-indigo-500/20">
+                        <i data-lucide="layers" class="w-5 h-5"></i>
                     </div>
                     <div>
-                        <h1 class="text-sm md:text-base font-bold leading-tight truncate max-w-[120px] xs:max-w-none">NMO Generator</h1>
+                        <h1 class="text-sm md:text-base font-bold tracking-tight text-gray-900 dark:text-white">NMO <span class="text-indigo-500">Generator</span></h1>
+                        <p class="text-[10px] text-gray-500 font-medium hidden md:block">Enterprise Data Tool</p>
                     </div>
                 </div>
 
-                <div class="flex items-center gap-2">
-                    <button onclick="toggleTheme()" class="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer">
+                <div class="flex items-center gap-1 md:gap-2">
+                    <button onclick="toggleTheme()" class="p-2.5 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-200 dark:focus:ring-gray-700">
                         <i id="icon-sun" data-lucide="sun" class="w-5 h-5 hidden"></i>
                         <i id="icon-moon" data-lucide="moon" class="w-5 h-5 hidden"></i>
                     </button>
-                    <div class="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1 hidden sm:block"></div>
-                    <button onclick="switchTab('editor')" id="btn-tab-editor" class="px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition-all bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-white cursor-pointer">Editor</button>
-                    <button onclick="switchTab('settings')" id="btn-tab-settings" class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition-all text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer">Config</button>
+                    
+                    <div class="h-6 w-px bg-gray-200 dark:bg-gray-800 mx-2 hidden sm:block"></div>
+                    
+                    <div class="bg-gray-100 dark:bg-gray-800/50 p-1 rounded-lg flex items-center gap-1">
+                        <button onclick="switchTab('editor')" id="btn-tab-editor" class="px-4 py-1.5 rounded-md text-xs md:text-sm font-semibold transition-all shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white">Editor</button>
+                        <button onclick="switchTab('settings')" id="btn-tab-settings" class="px-4 py-1.5 rounded-md text-xs md:text-sm font-medium transition-all text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">Config</button>
+                    </div>
                 </div>
             </div>
         </div>
     </nav>
 
-    <!-- Main Content Area -->
     <div class="flex-1 flex overflow-hidden relative">
         
-        <!-- EDITOR VIEW -->
         <div id="tab-editor" class="flex-1 flex w-full h-full relative">
             
-            <!-- LEFT SIDEBAR: ORDER LIST -->
-            <!-- Mobile: Absolute z-20. Desktop: Relative z-auto (Side by Side) -->
-            <div id="sidebar-panel" class="w-full md:w-80 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col absolute md:relative inset-0 z-20 md:z-auto transition-transform duration-300">
-                <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
-                    <span class="text-xs font-bold uppercase text-slate-500 tracking-wider">Orders List</span>
-                    <span id="order-total-badge" class="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+            <div id="sidebar-panel" class="w-full md:w-[320px] bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col absolute md:relative inset-0 z-20 md:z-auto transition-transform duration-300 shadow-xl md:shadow-none">
+                
+                <div class="p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center bg-gray-50/50 dark:bg-gray-900/50 backdrop-blur-sm">
+                    <span class="text-xs font-bold uppercase text-gray-400 tracking-wider">Active Orders</span>
+                    <span id="order-total-badge" class="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-xs px-2.5 py-0.5 rounded-full font-bold border border-indigo-200 dark:border-indigo-800">0</span>
                 </div>
                 
-                <!-- Order List Container -->
-                <div id="order-list" class="flex-1 overflow-y-auto p-2 space-y-2">
-                    <!-- Orders injected here -->
-                </div>
+                <div id="order-list" class="flex-1 overflow-y-auto p-3 space-y-2">
+                    </div>
 
-                <!-- Footer Actions & Copyright -->
-                <div class="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex flex-col gap-3 shrink-0">
-                    <div>
-                        <button onclick="addNewOrder()" class="w-full py-3 md:py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer">
-                            <i data-lucide="plus" class="w-4 h-4"></i> New Order
+                <div class="p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-col gap-3 shrink-0 pb-6 md:pb-4">
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="addNewOrder()" class="col-span-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-500/20 active:scale-95">
+                            <i data-lucide="plus" class="w-4 h-4"></i> New
                         </button>
-                        <button onclick="exportExcel()" class="w-full mt-3 md:mt-2 py-3 md:py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer">
-                            <i data-lucide="download" class="w-4 h-4"></i> Export All Data
+                        <button onclick="exportExcel()" class="col-span-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-500/20 active:scale-95">
+                            <i data-lucide="download" class="w-4 h-4"></i> Export
                         </button>
                     </div>
                     
-                    <!-- Copyright Notice -->
-                    <div class="pt-2 border-t border-slate-200 dark:border-slate-800 text-center">
-                        <p class="text-[10px] text-slate-400 dark:text-slate-500 leading-tight">
-                            &copy; <span id="year"></span> Efiniti Telecommunications Services.<br>
-                            For Internal Use Only.
-                        </p>
-                        <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-1 font-medium">
-                            Developed by Jian Song, Powered by Gemini 3 Pro
+                    <div class="text-center pt-2">
+                         <p class="text-[10px] text-gray-400 dark:text-gray-600">
+                            &copy; <span id="year"></span> Efiniti Internal Tool v2.0
                         </p>
                     </div>
                 </div>
             </div>
 
-            <!-- RIGHT MAIN: ORDER EDITOR -->
-            <!-- Mobile: Absolute z-30 (Over sidebar). Desktop: Relative z-auto (Next to sidebar) -->
-            <div id="editor-panel" class="w-full md:flex-1 bg-slate-50 dark:bg-slate-950 flex flex-col h-full overflow-hidden absolute md:relative inset-0 z-30 md:z-auto translate-x-full md:translate-x-0 transition-transform duration-300">
+            <div id="editor-panel" class="w-full md:flex-1 bg-gray-50 dark:bg-black flex flex-col h-full overflow-hidden absolute md:relative inset-0 z-30 md:z-auto translate-x-full md:translate-x-0 transition-transform duration-300">
                 
-                <!-- Empty State (Desktop Only) -->
-                <div id="editor-empty" class="hidden md:flex absolute inset-0 flex-col items-center justify-center text-slate-400 z-0 pointer-events-none">
-                    <i data-lucide="arrow-left-circle" class="w-16 h-16 mb-4 opacity-50"></i>
-                    <p class="text-lg font-medium">Select or create an order to begin</p>
+                <div id="editor-empty" class="hidden md:flex absolute inset-0 flex-col items-center justify-center text-gray-400 z-0 pointer-events-none">
+                    <div class="bg-gray-100 dark:bg-gray-900 p-6 rounded-full mb-4">
+                        <i data-lucide="mouse-pointer-2" class="w-12 h-12 opacity-50 text-indigo-500"></i>
+                    </div>
+                    <p class="text-lg font-medium text-gray-500 dark:text-gray-400">Select an order to edit details</p>
                 </div>
 
-                <!-- Active Editor Content (Z-10 to sit above empty state) -->
-                <div id="editor-content" class="flex flex-col h-full w-full relative z-10 bg-slate-50 dark:bg-slate-950">
+                <div id="editor-content" class="flex flex-col h-full w-full relative z-10">
                     
-                    <!-- Mobile Header with Back Button -->
-                    <div class="md:hidden p-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 shrink-0">
-                        <button onclick="showListMobile()" class="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg flex items-center gap-1 text-sm font-medium cursor-pointer">
-                            <i data-lucide="chevron-left" class="w-5 h-5"></i> Back
+                    <div class="md:hidden px-4 py-3 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center gap-3 shrink-0">
+                        <button onclick="showListMobile()" class="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+                            <i data-lucide="chevron-left" class="w-5 h-5"></i>
                         </button>
-                        <span class="font-bold text-sm text-slate-800 dark:text-white">Edit Order</span>
+                        <span class="font-bold text-sm text-gray-800 dark:text-white">Edit Details</span>
                     </div>
 
-                    <!-- Scrollable Form Area -->
-                    <div class="flex-1 overflow-y-auto no-scrollbar">
-                        <!-- Header Form -->
-                        <div class="p-4 md:p-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm">
-                            <div class="flex justify-between items-start mb-4">
-                                <h2 class="hidden md:flex text-xl font-bold text-slate-800 dark:text-white items-center gap-2">
-                                    <i data-lucide="package" class="w-5 h-5 text-blue-500"></i>
-                                    Order Details
-                                </h2>
-                                <!-- Mobile Title placeholder to keep spacing if needed -->
-                                <div class="md:hidden"></div> 
-
-                                <div class="flex gap-2 w-full md:w-auto justify-end">
-                                    <button onclick="duplicateOrder()" class="flex-1 md:flex-none justify-center text-xs flex items-center gap-1 px-3 py-2 md:py-1.5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors border border-transparent dark:border-slate-700 cursor-pointer">
-                                        <i data-lucide="copy" class="w-3 h-3"></i> Clone
+                    <div class="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar p-4 md:p-8 max-w-7xl mx-auto w-full space-y-6">
+                        
+                        <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-5 md:p-6 transition-all hover:shadow-md">
+                            <div class="flex justify-between items-start mb-6">
+                                <div>
+                                    <h2 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                        Order Configuration
+                                    </h2>
+                                    <p class="text-xs text-gray-500 mt-1">Define the high-level parameters for this order.</p>
+                                </div>
+                                
+                                <div class="flex gap-2">
+                                    <button onclick="duplicateOrder()" class="p-2 text-gray-500 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors" title="Duplicate">
+                                        <i data-lucide="copy" class="w-4 h-4"></i>
                                     </button>
-                                    <button onclick="deleteCurrentOrder()" class="flex-1 md:flex-none justify-center text-xs flex items-center gap-1 px-3 py-2 md:py-1.5 rounded bg-rose-50 dark:bg-rose-900/20 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 transition-colors border border-transparent dark:border-rose-900/30 cursor-pointer">
+                                    <button onclick="deleteCurrentOrder()" class="p-2 text-gray-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors" title="Delete">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
+                                <div class="group">
+                                    <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5 group-focus-within:text-indigo-500 transition-colors">EO Number</label>
+                                    <input type="text" id="active-eo" oninput="updateActiveOrder('eo', this.value)" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white dark:focus:bg-gray-800 outline-none font-mono" placeholder="e.g. 12345">
+                                </div>
+                                <div class="group">
+                                    <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5 group-focus-within:text-indigo-500 transition-colors">WBS Element</label>
+                                    <input type="text" id="active-wbs" oninput="updateActiveOrder('wbs', this.value)" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white dark:focus:bg-gray-800 outline-none font-mono" placeholder="Project code">
+                                </div>
+                                <div class="group">
+                                    <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5 group-focus-within:text-indigo-500 transition-colors">Req. Date</label>
+                                    <input type="date" id="active-date" onchange="updateActiveOrder('date', this.value)" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white dark:focus:bg-gray-800 outline-none text-gray-600 dark:text-gray-300">
+                                </div>
+                                <div class="group">
+                                    <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5 group-focus-within:text-indigo-500 transition-colors">Version</label>
+                                    <input type="number" id="active-version" oninput="updateActiveOrder('version', this.value)" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white dark:focus:bg-gray-800 outline-none">
+                                </div>
+                            </div>
+                            
+                            <div class="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800/50">
+                                <button onclick="document.getElementById('active-advanced').classList.toggle('hidden')" class="text-xs font-medium text-indigo-500 hover:text-indigo-600 flex items-center gap-1.5 transition-colors">
+                                    <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5"></i> Advanced Mapping defaults
+                                </button>
+                                <div id="active-advanced" class="hidden mt-4 grid grid-cols-2 md:grid-cols-6 gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
+                                    <div><label class="text-[10px] uppercase font-bold text-gray-400 mb-1 block">Site</label><input id="active-site" oninput="updateActiveOrder('site', this.value)" class="w-full text-xs bg-transparent border-b border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:outline-none py-1 transition-colors"></div>
+                                    <div><label class="text-[10px] uppercase font-bold text-gray-400 mb-1 block">Sales Org</label><input id="active-salesorg" oninput="updateActiveOrder('salesOrg', this.value)" class="w-full text-xs bg-transparent border-b border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:outline-none py-1 transition-colors"></div>
+                                    <div><label class="text-[10px] uppercase font-bold text-gray-400 mb-1 block">Dist Ch.</label><input id="active-dist" oninput="updateActiveOrder('dist', this.value)" class="w-full text-xs bg-transparent border-b border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:outline-none py-1 transition-colors"></div>
+                                    <div><label class="text-[10px] uppercase font-bold text-gray-400 mb-1 block">Div</label><input id="active-div" oninput="updateActiveOrder('div', this.value)" class="w-full text-xs bg-transparent border-b border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:outline-none py-1 transition-colors"></div>
+                                    <div><label class="text-[10px] uppercase font-bold text-gray-400 mb-1 block">Office</label><input id="active-soff" oninput="updateActiveOrder('soff', this.value)" class="w-full text-xs bg-transparent border-b border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:outline-none py-1 transition-colors"></div>
+                                    <div><label class="text-[10px] uppercase font-bold text-gray-400 mb-1 block">Group</label><input id="active-sgrp" oninput="updateActiveOrder('sgrp', this.value)" class="w-full text-xs bg-transparent border-b border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:outline-none py-1 transition-colors"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-4 pb-20 md:pb-0">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                                    <i data-lucide="package-search" class="w-4 h-4 text-indigo-500"></i>
+                                    Line Items
+                                </h3>
+                                <div id="lookup-preview" class="flex gap-2 opacity-0 transition-opacity duration-300">
+                                    </div>
+                            </div>
+
+                            <div class="bg-white dark:bg-gray-900 p-2 md:p-3 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col md:flex-row gap-3 items-center">
+                                <div class="flex-1 w-full md:w-auto relative group">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <i data-lucide="map-pin" class="h-4 w-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors"></i>
+                                    </div>
+                                    <select id="new-shipto" onchange="updateLookupPreview()" class="pl-9 w-full bg-gray-50 dark:bg-gray-800 border-0 rounded-xl py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 cursor-pointer text-gray-700 dark:text-gray-200">
+                                        <option value="">Select Ship-to Location...</option>
+                                    </select>
+                                </div>
+                                <div class="w-full md:w-64 relative group">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <i data-lucide="tag" class="h-4 w-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors"></i>
+                                    </div>
+                                    <input type="text" id="new-product" placeholder="SAP Material ID" class="pl-9 w-full bg-gray-50 dark:bg-gray-800 border-0 rounded-xl py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 text-gray-700 dark:text-gray-200">
+                                </div>
+                                <div class="w-full md:w-32 relative group">
+                                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <i data-lucide="hash" class="h-4 w-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors"></i>
+                                    </div>
+                                    <input type="number" id="new-qty" placeholder="Qty" class="pl-9 w-full bg-gray-50 dark:bg-gray-800 border-0 rounded-xl py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 text-gray-700 dark:text-gray-200">
+                                </div>
+                                <button onclick="addMaterialToActiveOrder()" class="w-full md:w-auto px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/20 transition-all active:scale-95 flex items-center justify-center gap-2">
+                                    <i data-lucide="plus" class="w-4 h-4"></i>
+                                    <span>Add</span>
+                                </button>
+                            </div>
+
+                            <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-urrentOrder()" class="flex-1 md:flex-none justify-center text-xs flex items-center gap-1 px-3 py-2 md:py-1.5 rounded bg-rose-50 dark:bg-rose-900/20 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 transition-colors border border-transparent dark:border-rose-900/30 cursor-pointer">
                                         <i data-lucide="trash-2" class="w-3 h-3"></i> Delete
                                     </button>
                                 </div>
@@ -693,3 +784,4 @@ PQLDMUR,4P12,A000,ZRDC`;
     </script>
 </body>
 </html>
+
