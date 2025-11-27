@@ -32,8 +32,10 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap');
         body { transition: background-color 0.2s, color 0.2s; }
         
-        /* Mobile-friendly touch targets */
-        button, input, select { touch-action: manipulation; }
+        /* Ensure cursors behave normally */
+        button { cursor: pointer; }
+        input, textarea, select { cursor: text; }
+        select { cursor: pointer; }
         
         /* Custom Scrollbar for dark mode */
         .dark ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -61,13 +63,13 @@
                 </div>
 
                 <div class="flex items-center gap-2">
-                    <button onclick="toggleTheme()" class="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                    <button onclick="toggleTheme()" class="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer">
                         <i id="icon-sun" data-lucide="sun" class="w-5 h-5 hidden"></i>
                         <i id="icon-moon" data-lucide="moon" class="w-5 h-5 hidden"></i>
                     </button>
                     <div class="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1 hidden sm:block"></div>
-                    <button onclick="switchTab('editor')" id="btn-tab-editor" class="px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition-all bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-white">Editor</button>
-                    <button onclick="switchTab('settings')" id="btn-tab-settings" class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition-all text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">Config</button>
+                    <button onclick="switchTab('editor')" id="btn-tab-editor" class="px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition-all bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-white cursor-pointer">Editor</button>
+                    <button onclick="switchTab('settings')" id="btn-tab-settings" class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition-all text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer">Config</button>
                 </div>
             </div>
         </div>
@@ -79,8 +81,9 @@
         <!-- EDITOR VIEW -->
         <div id="tab-editor" class="flex-1 flex w-full h-full relative">
             
-            <!-- LEFT SIDEBAR: ORDER LIST (Mobile: Full Width / Desktop: Fixed Width) -->
-            <div id="sidebar-panel" class="w-full md:w-80 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col absolute md:relative inset-0 z-20 md:z-0 transition-transform duration-300">
+            <!-- LEFT SIDEBAR: ORDER LIST -->
+            <!-- Mobile: Absolute z-20. Desktop: Relative z-auto (Side by Side) -->
+            <div id="sidebar-panel" class="w-full md:w-80 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col absolute md:relative inset-0 z-20 md:z-auto transition-transform duration-300">
                 <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
                     <span class="text-xs font-bold uppercase text-slate-500 tracking-wider">Orders List</span>
                     <span id="order-total-badge" class="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs px-2 py-0.5 rounded-full font-bold">0</span>
@@ -94,10 +97,10 @@
                 <!-- Footer Actions & Copyright -->
                 <div class="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex flex-col gap-3 shrink-0">
                     <div>
-                        <button onclick="addNewOrder()" class="w-full py-3 md:py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-sm">
+                        <button onclick="addNewOrder()" class="w-full py-3 md:py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer">
                             <i data-lucide="plus" class="w-4 h-4"></i> New Order
                         </button>
-                        <button onclick="exportExcel()" class="w-full mt-3 md:mt-2 py-3 md:py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-sm">
+                        <button onclick="exportExcel()" class="w-full mt-3 md:mt-2 py-3 md:py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer">
                             <i data-lucide="download" class="w-4 h-4"></i> Export All Data
                         </button>
                     </div>
@@ -115,21 +118,22 @@
                 </div>
             </div>
 
-            <!-- RIGHT MAIN: ORDER EDITOR (Mobile: Hidden by default / Desktop: Always visible) -->
-            <div id="editor-panel" class="w-full md:flex-1 bg-slate-50 dark:bg-slate-950 flex flex-col h-full overflow-hidden absolute md:relative inset-0 z-30 md:z-0 translate-x-full md:translate-x-0 transition-transform duration-300 bg-slate-50 dark:bg-slate-950">
+            <!-- RIGHT MAIN: ORDER EDITOR -->
+            <!-- Mobile: Absolute z-30 (Over sidebar). Desktop: Relative z-auto (Next to sidebar) -->
+            <div id="editor-panel" class="w-full md:flex-1 bg-slate-50 dark:bg-slate-950 flex flex-col h-full overflow-hidden absolute md:relative inset-0 z-30 md:z-auto translate-x-full md:translate-x-0 transition-transform duration-300">
                 
                 <!-- Empty State (Desktop Only) -->
-                <div id="editor-empty" class="hidden md:flex absolute inset-0 flex-col items-center justify-center text-slate-400">
+                <div id="editor-empty" class="hidden md:flex absolute inset-0 flex-col items-center justify-center text-slate-400 z-0 pointer-events-none">
                     <i data-lucide="arrow-left-circle" class="w-16 h-16 mb-4 opacity-50"></i>
                     <p class="text-lg font-medium">Select or create an order to begin</p>
                 </div>
 
-                <!-- Active Editor Content -->
-                <div id="editor-content" class="flex flex-col h-full w-full">
+                <!-- Active Editor Content (Z-10 to sit above empty state) -->
+                <div id="editor-content" class="flex flex-col h-full w-full relative z-10 bg-slate-50 dark:bg-slate-950">
                     
                     <!-- Mobile Header with Back Button -->
                     <div class="md:hidden p-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 shrink-0">
-                        <button onclick="showListMobile()" class="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg flex items-center gap-1 text-sm font-medium">
+                        <button onclick="showListMobile()" class="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg flex items-center gap-1 text-sm font-medium cursor-pointer">
                             <i data-lucide="chevron-left" class="w-5 h-5"></i> Back
                         </button>
                         <span class="font-bold text-sm text-slate-800 dark:text-white">Edit Order</span>
@@ -148,10 +152,10 @@
                                 <div class="md:hidden"></div> 
 
                                 <div class="flex gap-2 w-full md:w-auto justify-end">
-                                    <button onclick="duplicateOrder()" class="flex-1 md:flex-none justify-center text-xs flex items-center gap-1 px-3 py-2 md:py-1.5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors border border-transparent dark:border-slate-700">
+                                    <button onclick="duplicateOrder()" class="flex-1 md:flex-none justify-center text-xs flex items-center gap-1 px-3 py-2 md:py-1.5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors border border-transparent dark:border-slate-700 cursor-pointer">
                                         <i data-lucide="copy" class="w-3 h-3"></i> Clone
                                     </button>
-                                    <button onclick="deleteCurrentOrder()" class="flex-1 md:flex-none justify-center text-xs flex items-center gap-1 px-3 py-2 md:py-1.5 rounded bg-rose-50 dark:bg-rose-900/20 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 transition-colors border border-transparent dark:border-rose-900/30">
+                                    <button onclick="deleteCurrentOrder()" class="flex-1 md:flex-none justify-center text-xs flex items-center gap-1 px-3 py-2 md:py-1.5 rounded bg-rose-50 dark:bg-rose-900/20 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 transition-colors border border-transparent dark:border-rose-900/30 cursor-pointer">
                                         <i data-lucide="trash-2" class="w-3 h-3"></i> Delete
                                     </button>
                                 </div>
@@ -161,36 +165,36 @@
                             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <div class="flex flex-col gap-1.5">
                                     <label class="text-xs font-bold text-slate-500 uppercase">EO Number <span class="text-rose-500">*</span></label>
-                                    <input type="text" id="active-eo" oninput="updateActiveOrder('eo', this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-3 md:py-2 text-base md:text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full font-mono">
+                                    <input type="text" id="active-eo" oninput="updateActiveOrder('eo', this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-3 md:py-2 text-base md:text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full font-mono cursor-text">
                                 </div>
                                 <div class="flex flex-col gap-1.5">
                                     <label class="text-xs font-bold text-slate-500 uppercase">WBS <span class="text-rose-500">*</span></label>
-                                    <input type="text" id="active-wbs" oninput="updateActiveOrder('wbs', this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-3 md:py-2 text-base md:text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full font-mono">
+                                    <input type="text" id="active-wbs" oninput="updateActiveOrder('wbs', this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-3 md:py-2 text-base md:text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full font-mono cursor-text">
                                 </div>
                                 <div class="grid grid-cols-2 gap-4 md:col-span-2">
                                     <div class="flex flex-col gap-1.5">
                                         <label class="text-xs font-bold text-slate-500 uppercase">Req. Date</label>
-                                        <input type="date" id="active-date" onchange="updateActiveOrder('date', this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-3 md:py-2 text-base md:text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full">
+                                        <input type="date" id="active-date" onchange="updateActiveOrder('date', this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-3 md:py-2 text-base md:text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full cursor-pointer">
                                     </div>
                                     <div class="flex flex-col gap-1.5">
                                         <label class="text-xs font-bold text-slate-500 uppercase">Version</label>
-                                        <input type="number" id="active-version" oninput="updateActiveOrder('version', this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-3 md:py-2 text-base md:text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full">
+                                        <input type="number" id="active-version" oninput="updateActiveOrder('version', this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-3 md:py-2 text-base md:text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full cursor-text">
                                     </div>
                                 </div>
                             </div>
                             
                             <!-- Advanced Defaults Toggle -->
                             <div class="mt-4">
-                                <button onclick="document.getElementById('active-advanced').classList.toggle('hidden')" class="text-xs text-blue-500 hover:text-blue-400 flex items-center gap-1 py-2">
+                                <button onclick="document.getElementById('active-advanced').classList.toggle('hidden')" class="text-xs text-blue-500 hover:text-blue-400 flex items-center gap-1 py-2 cursor-pointer">
                                     <i data-lucide="sliders" class="w-3 h-3"></i> Show Default Values (Site, Sales Org...)
                                 </button>
                                 <div id="active-advanced" class="hidden mt-2 grid grid-cols-2 md:grid-cols-6 gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
-                                    <div><label class="text-[10px] uppercase font-bold text-slate-500">Site</label><input id="active-site" oninput="updateActiveOrder('site', this.value)" class="w-full text-xs bg-transparent border-b border-slate-300 dark:border-slate-600 focus:outline-none py-1.5"></div>
-                                    <div><label class="text-[10px] uppercase font-bold text-slate-500">Sales Org</label><input id="active-salesorg" oninput="updateActiveOrder('salesOrg', this.value)" class="w-full text-xs bg-transparent border-b border-slate-300 dark:border-slate-600 focus:outline-none py-1.5"></div>
-                                    <div><label class="text-[10px] uppercase font-bold text-slate-500">Dist Ch.</label><input id="active-dist" oninput="updateActiveOrder('dist', this.value)" class="w-full text-xs bg-transparent border-b border-slate-300 dark:border-slate-600 focus:outline-none py-1.5"></div>
-                                    <div><label class="text-[10px] uppercase font-bold text-slate-500">Div</label><input id="active-div" oninput="updateActiveOrder('div', this.value)" class="w-full text-xs bg-transparent border-b border-slate-300 dark:border-slate-600 focus:outline-none py-1.5"></div>
-                                    <div><label class="text-[10px] uppercase font-bold text-slate-500">Office</label><input id="active-soff" oninput="updateActiveOrder('soff', this.value)" class="w-full text-xs bg-transparent border-b border-slate-300 dark:border-slate-600 focus:outline-none py-1.5"></div>
-                                    <div><label class="text-[10px] uppercase font-bold text-slate-500">Group</label><input id="active-sgrp" oninput="updateActiveOrder('sgrp', this.value)" class="w-full text-xs bg-transparent border-b border-slate-300 dark:border-slate-600 focus:outline-none py-1.5"></div>
+                                    <div><label class="text-[10px] uppercase font-bold text-slate-500">Site</label><input id="active-site" oninput="updateActiveOrder('site', this.value)" class="w-full text-xs bg-transparent border-b border-slate-300 dark:border-slate-600 focus:outline-none py-1.5 cursor-text"></div>
+                                    <div><label class="text-[10px] uppercase font-bold text-slate-500">Sales Org</label><input id="active-salesorg" oninput="updateActiveOrder('salesOrg', this.value)" class="w-full text-xs bg-transparent border-b border-slate-300 dark:border-slate-600 focus:outline-none py-1.5 cursor-text"></div>
+                                    <div><label class="text-[10px] uppercase font-bold text-slate-500">Dist Ch.</label><input id="active-dist" oninput="updateActiveOrder('dist', this.value)" class="w-full text-xs bg-transparent border-b border-slate-300 dark:border-slate-600 focus:outline-none py-1.5 cursor-text"></div>
+                                    <div><label class="text-[10px] uppercase font-bold text-slate-500">Div</label><input id="active-div" oninput="updateActiveOrder('div', this.value)" class="w-full text-xs bg-transparent border-b border-slate-300 dark:border-slate-600 focus:outline-none py-1.5 cursor-text"></div>
+                                    <div><label class="text-[10px] uppercase font-bold text-slate-500">Office</label><input id="active-soff" oninput="updateActiveOrder('soff', this.value)" class="w-full text-xs bg-transparent border-b border-slate-300 dark:border-slate-600 focus:outline-none py-1.5 cursor-text"></div>
+                                    <div><label class="text-[10px] uppercase font-bold text-slate-500">Group</label><input id="active-sgrp" oninput="updateActiveOrder('sgrp', this.value)" class="w-full text-xs bg-transparent border-b border-slate-300 dark:border-slate-600 focus:outline-none py-1.5 cursor-text"></div>
                                 </div>
                             </div>
                         </div>
@@ -202,19 +206,19 @@
                             <div class="flex flex-col md:flex-row gap-3 items-end mb-4 bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
                                 <div class="flex-1 w-full">
                                     <label class="text-xs font-bold text-slate-500 uppercase mb-1 block">Ship-to Code</label>
-                                    <select id="new-shipto" onchange="updateLookupPreview()" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-3 md:py-2 text-base md:text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                                    <select id="new-shipto" onchange="updateLookupPreview()" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-3 md:py-2 text-base md:text-sm outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
                                         <option value="">Select...</option>
                                     </select>
                                 </div>
                                 <div class="w-full md:w-48">
                                     <label class="text-xs font-bold text-slate-500 uppercase mb-1 block">SAP</label>
-                                    <input type="text" id="new-product" placeholder="Material" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-3 md:py-2 text-base md:text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                                    <input type="text" id="new-product" placeholder="Material" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-3 md:py-2 text-base md:text-sm outline-none focus:ring-2 focus:ring-blue-500 cursor-text">
                                 </div>
                                 <div class="w-full md:w-24">
                                     <label class="text-xs font-bold text-slate-500 uppercase mb-1 block">Qty</label>
-                                    <input type="number" id="new-qty" placeholder="0" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-3 md:py-2 text-base md:text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                                    <input type="number" id="new-qty" placeholder="0" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-3 md:py-2 text-base md:text-sm outline-none focus:ring-2 focus:ring-blue-500 cursor-text">
                                 </div>
-                                <button onclick="addMaterialToActiveOrder()" class="w-full md:w-auto h-[44px] md:h-[38px] px-6 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2">
+                                <button onclick="addMaterialToActiveOrder()" class="w-full md:w-auto h-[44px] md:h-[38px] px-6 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2 cursor-pointer">
                                     <i data-lucide="plus-circle" class="w-5 h-5 md:w-4 md:h-4"></i> Add
                                 </button>
                             </div>
@@ -261,21 +265,21 @@
                 <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                     <h2 class="text-2xl font-bold">Configuration</h2>
                     <div class="flex gap-2 w-full md:w-auto">
-                        <button onclick="downloadSelfWithConfig()" class="flex-1 md:flex-none flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg shadow-sm">
+                        <button onclick="downloadSelfWithConfig()" class="flex-1 md:flex-none flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg shadow-sm cursor-pointer">
                             <i data-lucide="save" class="w-4 h-4"></i> Download Tool with Config
                         </button>
-                        <button onclick="resetDefaults()" class="px-3 py-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-sm border border-slate-200 dark:border-slate-700">Reset</button>
+                        <button onclick="resetDefaults()" class="px-3 py-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-sm border border-slate-200 dark:border-slate-700 cursor-pointer">Reset</button>
                     </div>
                 </div>
                 
                 <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 md:p-6">
                     <h3 class="font-bold mb-2 flex items-center gap-2 text-blue-500"><i data-lucide="map" class="w-4 h-4"></i> Ship-to Mapping (CSV)</h3>
-                    <textarea id="cfg-mapping" onchange="updateDropdownFromConfig()" class="w-full h-48 bg-slate-50 dark:bg-slate-950 font-mono text-xs p-4 rounded-lg border border-slate-300 dark:border-slate-700 focus:border-blue-500 outline-none"></textarea>
+                    <textarea id="cfg-mapping" onchange="updateDropdownFromConfig()" class="w-full h-48 bg-slate-50 dark:bg-slate-950 font-mono text-xs p-4 rounded-lg border border-slate-300 dark:border-slate-700 focus:border-blue-500 outline-none cursor-text"></textarea>
                 </div>
 
                 <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 md:p-6">
                     <h3 class="font-bold mb-2 flex items-center gap-2 text-emerald-500"><i data-lucide="table-properties" class="w-4 h-4"></i> Header Definitions (CSV)</h3>
-                    <textarea id="cfg-headers" class="w-full h-32 bg-slate-50 dark:bg-slate-950 font-mono text-xs p-4 rounded-lg border border-slate-300 dark:border-slate-700 focus:border-blue-500 outline-none"></textarea>
+                    <textarea id="cfg-headers" class="w-full h-32 bg-slate-50 dark:bg-slate-950 font-mono text-xs p-4 rounded-lg border border-slate-300 dark:border-slate-700 focus:border-blue-500 outline-none cursor-text"></textarea>
                 </div>
             </div>
         </div>
@@ -357,9 +361,6 @@ PQLDMUR,4P12,A000,ZRDC`;
             
             sidebar.classList.remove('-translate-x-full');
             editor.classList.add('translate-x-full');
-            
-            // Deselect active order visual in mobile list
-            // activeOrderId = null; // Don't nullify logic, just visual transition
         }
 
         function showEditorMobile() {
@@ -544,7 +545,7 @@ PQLDMUR,4P12,A000,ZRDC`;
                         </div>
                     </td>
                     <td class="px-4 py-3 text-right">
-                        <button onclick="removeMaterial(${item.id})" class="text-slate-400 hover:text-rose-500 transition-colors p-1">
+                        <button onclick="removeMaterial(${item.id})" class="text-slate-400 hover:text-rose-500 transition-colors p-1 cursor-pointer">
                             <i data-lucide="trash" class="w-4 h-4"></i>
                         </button>
                     </td>
