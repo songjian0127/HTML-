@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NMO Generator Tool</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- XLSX Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Config -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap');
+        body { transition: background-color 0.2s, color 0.2s; }
+        /* Custom Scrollbar for dark mode */
+        .dark ::-webkit-scrollbar { width: 8px; height: 8px; }
+        .dark ::-webkit-scrollbar-track { background: #0f172a; }
+        .dark ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-200 font-sans h-screen flex flex-col overflow-hidden">
+
+    <!-- Navigation -->
+    <nav class="shrink-0 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 z-50">
+        <div class="max-w-full mx-auto px-4">
+            <div class="flex justify-between items-center h-14">
+                <div class="flex items-center gap-3">
+                    <div class="bg-blue-600 p-1.5 rounded-lg text-white">
+                        <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-base font-bold leading-tight">NMO Generator</h1>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button onclick="toggleTheme()" class="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                        <i id="icon-sun" data-lucide="sun" class="w-5 h-5 hidden"></i>
+                        <i id="icon-moon" data-lucide="moon" class="w-5 h-5 hidden"></i>
+                    </button>
+                    <div class="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1"></div>
+                    <button onclick="switchTab('editor')" id="btn-tab-editor" class="px-3 py-1.5 rounded-lg text-sm font-medium transition-all bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-white">Editor</button>
+                    <button onclick="switchTab('settings')" id="btn-tab-settings" class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">Config</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 flex overflow-hidden">
+        
+        <!-- EDITOR VIEW -->
+        <div id="tab-editor" class="flex-1 flex w-full">
+            
+            <!-- LEFT SIDEBAR: ORDER LIST -->
+            <div class="w-80 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col">
+                <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
+                    <span class="text-xs font-bold uppercase text-slate-500 tracking-wider">Orders List</span>
+                    <span id="order-total-badge" class="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+                </div>
+                
+                <!-- Order List Container -->
+                <div id="order-list" class="flex-1 overflow-y-auto p-2 space-y-2">
+                    <!-- Orders injected here -->
+                </div>
+
+                <!-- Add Order Button -->
+                <div class="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+                    <button onclick="addNewOrder()" class="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all">
+                        <i data-lucide="plus" class="w-4 h-4"></i> New Order
+                    </button>
+                    <button onclick="exportExcel()" class="w-full mt-2 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all">
+                        <i data-lucide="download" class="w-4 h-4"></i> Export All Data
+                    </button>
+                </div>
+            </div>
+
+            <!-- RIGHT MAIN: ORDER EDITOR -->
+            <div class="flex-1 bg-slate-50 dark:bg-slate-950 flex flex-col h-full overflow-hidden relative">
+                
+                <!-- Empty State -->
+                <div id="editor-empty" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
+                    <i data-lucide="arrow-left-circle" class="w-16 h-16 mb-4 opacity-50"></i>
+                    <p class="text-lg font-medium">Select or create an order to begin</p>
+                </div>
+
+                <!-- Active Editor -->
+                <div id="editor-content" class="hidden flex-col h-full">
+                    
+                    <!-- Header Form Area -->
+                    <div class="p-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm shrink-0">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h2 class="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                                    <i data-lucide="package" class="w-5 h-5 text-blue-500"></i>
+                                    Edit Order Details
+                                </h2>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="duplicateOrder()" class="text-xs flex items-center gap-1 px-3 py-1.5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors" title="Duplicate this order">
+                                    <i data-lucide="copy" class="w-3 h-3"></i> Clone
+                                </button>
+                                <button onclick="deleteCurrentOrder()" class="text-xs flex items-center gap-1 px-3 py-1.5 rounded bg-rose-50 dark:bg-rose-900/20 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 transition-colors" title="Delete this order">
+                                    <i data-lucide="trash-2" class="w-3 h-3"></i> Delete
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Header Inputs Grid -->
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div class="flex flex-col gap-1.5">
+                                <label class="text-xs font-bold text-slate-500 uppercase">EO Number <span class="text-rose-500">*</span></label>
+                                <input type="text" id="active-eo" oninput="updateActiveOrder('eo', this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full font-mono">
+                            </div>
+                            <div class="flex flex-col gap-1.5">
+                                <label class="text-xs font-bold text-slate-500 uppercase">WBS <span class="text-rose-500">*</span></label>
+                                <input type="text" id="active-wbs" oninput="updateActiveOrder('wbs', this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full font-mono">
+                            </div>
+                            <div class="flex flex-col gap-1.5">
+                                <label class="text-xs font-bold text-slate-500 uppercase">Req. Date</label>
+                                <input type="date" id="active-date" onchange="updateActiveOrder('date', this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full">
+                            </div>
+                            <div class="flex flex-col gap-1.5">
+                                <label class="text-xs font-bold text-slate-500 uppercase">Version</label>
+                                <input type="number" id="active-version" oninput="updateActiveOrder('version', this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full">
+                            </div>
+                        </div>
+                        
+                        <!-- Advanced Defaults Toggle -->
+                        <div class="mt-3">
+                            <button onclick="document.getElementById('active-advanced').classList.toggle('hidden')" class="text-xs text-blue-500 hover:text-blue-400 flex items-center gap-1">
+                                <i data-lucide="sliders" class="w-3 h-3"></i> Show Default Values (Site, Sales Org...)
+                            </button>
+                            <div id="active-advanced" class="hidden mt-3 grid grid-cols-2 md:grid-cols-6 gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
+                                <div><label class="text-[10px] uppercase font-bold text-slate-500">Site</label><input id="active-site" oninput="updateActiveOrder('site', this.value)" class="w-full text-xs bg-transparent border-b border-slate-300 dark:border-slate-600 focus:outline-none py-1"></div>
+                                <div><label class="text-[10px] uppercase font-bold text-slate-500">Sales Org</label><input id="active-salesorg" oninput="updateActiveOrder('salesOrg', this.value)" class="w-full text-xs bg-transparent border-b border-slate-300 dark:border-slate-600 focus:outline-none py-1"></div>
+                                <div><label class="text-[10px] uppercase font-bold text-slate-500">Dist Ch.</label><input id="active-dist" oninput="updateActiveOrder('dist', this.value)" class="w-full text-xs bg-transparent border-b border-slate-300 dark:border-slate-600 focus:outline-none py-1"></div>
+                                <div><label class="text-[10px] uppercase font-bold text-slate-500">Div</label><input id="active-div" oninput="updateActiveOrder('div', this.value)" class="w-full text-xs bg-transparent border-b border-slate-300 dark:border-slate-600 focus:outline-none py-1"></div>
+                                <div><label class="text-[10px] uppercase font-bold text-slate-500">Office</label><input id="active-soff" oninput="updateActiveOrder('soff', this.value)" class="w-full text-xs bg-transparent border-b border-slate-300 dark:border-slate-600 focus:outline-none py-1"></div>
+                                <div><label class="text-[10px] uppercase font-bold text-slate-500">Group</label><input id="active-sgrp" oninput="updateActiveOrder('sgrp', this.value)" class="w-full text-xs bg-transparent border-b border-slate-300 dark:border-slate-600 focus:outline-none py-1"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Materials Area -->
+                    <div class="flex-1 overflow-hidden flex flex-col p-6">
+                        
+                        <!-- Add Item Bar -->
+                        <div class="flex flex-col md:flex-row gap-3 items-end mb-4 bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                            <div class="flex-1 w-full">
+                                <label class="text-xs font-bold text-slate-500 uppercase mb-1 block">Ship-to Code</label>
+                                <select id="new-shipto" onchange="updateLookupPreview()" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Select...</option>
+                                </select>
+                            </div>
+                            <div class="w-full md:w-48">
+                                <label class="text-xs font-bold text-slate-500 uppercase mb-1 block">SAP</label>
+                                <input type="text" id="new-product" placeholder="Material" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div class="w-full md:w-24">
+                                <label class="text-xs font-bold text-slate-500 uppercase mb-1 block">Qty</label>
+                                <input type="number" id="new-qty" placeholder="0" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <button onclick="addMaterialToActiveOrder()" class="h-[38px] px-6 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg shadow-sm transition-colors flex items-center gap-2">
+                                <i data-lucide="plus-circle" class="w-4 h-4"></i> Add
+                            </button>
+                        </div>
+
+                        <!-- Lookup Preview -->
+                        <div id="lookup-preview" class="mb-4 flex gap-3 text-xs opacity-0 transition-opacity duration-300">
+                           <!-- Injected -->
+                        </div>
+
+                        <!-- Table Container -->
+                        <div class="flex-1 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
+                            <div class="p-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex justify-between items-center">
+                                <h3 class="font-bold text-sm">Materials List</h3>
+                                <span class="text-xs text-slate-500" id="material-count">0 items</span>
+                            </div>
+                            <div class="flex-1 overflow-y-auto">
+                                <table class="w-full text-left text-sm">
+                                    <thead class="sticky top-0 bg-slate-100 dark:bg-slate-950 text-slate-500 uppercase text-xs z-10 shadow-sm">
+                                        <tr>
+                                            <th class="px-4 py-3">#</th>
+                                            <th class="px-4 py-3">Ship-to</th>
+                                            <th class="px-4 py-3">SAP</th>
+                                            <th class="px-4 py-3 text-right">Qty</th>
+                                            <th class="px-4 py-3">Mapped Data</th>
+                                            <th class="px-4 py-3 text-right">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="materials-tbody" class="divide-y divide-slate-200 dark:divide-slate-800">
+                                        <!-- Rows -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- SETTINGS TAB (Hidden by default) -->
+        <div id="tab-settings" class="hidden flex-1 w-full bg-slate-50 dark:bg-slate-950 overflow-y-auto p-8">
+            <div class="max-w-4xl mx-auto space-y-6">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-2xl font-bold">Configuration</h2>
+                    <div class="flex gap-2">
+                        <button onclick="downloadSelfWithConfig()" class="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg shadow-sm">
+                            <i data-lucide="save" class="w-4 h-4"></i> Download Tool with Config
+                        </button>
+                        <button onclick="resetDefaults()" class="px-3 py-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-sm">Reset</button>
+                    </div>
+                </div>
+                
+                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6">
+                    <h3 class="font-bold mb-2 flex items-center gap-2 text-blue-500"><i data-lucide="map" class="w-4 h-4"></i> Ship-to Mapping (CSV)</h3>
+                    <textarea id="cfg-mapping" onchange="updateDropdownFromConfig()" class="w-full h-48 bg-slate-50 dark:bg-slate-950 font-mono text-xs p-4 rounded-lg border border-slate-300 dark:border-slate-700 focus:border-blue-500 outline-none"></textarea>
+                </div>
+
+                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6">
+                    <h3 class="font-bold mb-2 flex items-center gap-2 text-emerald-500"><i data-lucide="table-properties" class="w-4 h-4"></i> Header Definitions (CSV)</h3>
+                    <textarea id="cfg-headers" class="w-full h-32 bg-slate-50 dark:bg-slate-950 font-mono text-xs p-4 rounded-lg border border-slate-300 dark:border-slate-700 focus:border-blue-500 outline-none"></textarea>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Logic -->
+    <script>
+        // --- CONSTANTS ---
+        const DEFAULT_MAPPING_CSV = `Ship to Code,Plant,Storage Location,Type
+PNSWEFI,P22,NS01,ZNMO
+PACTMIT2,P22,NS01,ZNMO
+PVICEFI,P22,NS01,ZNMO
+PNSWROS,2P11,A000,ZRDC
+PSAREG,5P11,A000,ZRDC
+PVICMUL,3P11,A000,ZRDC
+PWALOCK,6P11,A000,ZRDC
+PQLDMUR,4P12,A000,ZRDC`;
+
+        const DEFAULT_HEADERS_CSV = `HEADER.SALESORDER,HEADER.SALESORDERTYPE,HEADER.SALESORGANIZATION,HEADER.DISTRIBUTIONCHANNEL,HEADER.ORGANIZATIONDIVISION,HEADER.SALESOFFICE,HEADER.SALESGROUP,HEADER.SOLDTOPARTY,HEADER.SHIPTOPARTY,HEADER.ZZ1_NETWORKSITECODE_SDH,HEADER.PURCHASEORDERBYCUSTOMER,HEADER.REQUESTEDDELIVERYDATE,HEADER.ZZ1_VSNMR_V_SDH,HEADER.ZZ1_PS_POSID_SDH,ITEM.SALESORDERITEM,ITEM.PRODUCT,ITEM.REQUESTEDQUANTITY,ITEM.REQUESTEDQUANTITYUNIT,ITEM.SALESORDERITEMCATEGORY,ITEM.PLANT,ITEM.STORAGELOCATION
+*Sales Order (Temporary ID),*Sales Order Type,*Sales Organization,*Distribution Channel,*Division,*Sales Office,*Sales Group,*Sold-to Party,Ship-to Party,Site Code,Customer Reference,Requested Delivery Date,Version,WBS Header,*Item (Temporary ID),*Product,*Requested Quantity,Requested Qty Unit,Item Category,Plant,Storage Location`;
+
+        // --- STATE ---
+        let orders = []; // Array of Order Objects { id, header: {}, items: [] }
+        let activeOrderId = null;
+
+        // --- INIT ---
+        window.onload = function() {
+            lucide.createIcons();
+            
+            // Set Config Defaults
+            document.getElementById('cfg-mapping').value = DEFAULT_MAPPING_CSV;
+            document.getElementById('cfg-headers').value = DEFAULT_HEADERS_CSV;
+            
+            updateDropdownFromConfig();
+
+            // Load Theme
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            applyTheme(savedTheme);
+
+            // Start with one empty order
+            addNewOrder();
+        };
+
+        // --- ORDER MANAGEMENT ---
+
+        function addNewOrder() {
+            const newOrder = {
+                id: Date.now(),
+                header: {
+                    eo: '',
+                    wbs: '',
+                    date: new Date().toISOString().split('T')[0],
+                    version: 1,
+                    site: 'PMISC',
+                    salesOrg: 'NNSO',
+                    dist: '03',
+                    div: '01',
+                    soff: 'NSOF',
+                    sgrp: 'N02'
+                },
+                items: []
+            };
+            orders.push(newOrder);
+            setActiveOrder(newOrder.id);
+        }
+
+        function duplicateOrder() {
+            if(!activeOrderId) return;
+            const original = orders.find(o => o.id === activeOrderId);
+            if(!original) return;
+
+            const copy = JSON.parse(JSON.stringify(original));
+            copy.id = Date.now();
+            copy.header.eo = ''; // Clear EO for safety so user inputs new one
+            
+            // Assign new IDs to items to prevent reference issues
+            copy.items.forEach(item => item.id = Date.now() + Math.random());
+
+            orders.push(copy);
+            setActiveOrder(copy.id);
+        }
+
+        function deleteCurrentOrder() {
+            if(!activeOrderId) return;
+            if(!confirm("Delete this order and all its items?")) return;
+
+            orders = orders.filter(o => o.id !== activeOrderId);
+            
+            if(orders.length > 0) {
+                setActiveOrder(orders[orders.length - 1].id);
+            } else {
+                activeOrderId = null;
+                renderUI();
+            }
+        }
+
+        function setActiveOrder(id) {
+            activeOrderId = id;
+            renderUI();
+        }
+
+        // --- DATA UPDATES ---
+
+        function updateActiveOrder(field, value) {
+            if(!activeOrderId) return;
+            const order = orders.find(o => o.id === activeOrderId);
+            if(!order) return;
+
+            order.header[field] = value;
+            
+            // If changing EO number, update the sidebar list title instantly
+            if(field === 'eo') {
+                renderOrderList();
+            }
+        }
+
+        function addMaterialToActiveOrder() {
+            if(!activeOrderId) return;
+            const order = orders.find(o => o.id === activeOrderId);
+            
+            const shipTo = document.getElementById('new-shipto').value;
+            const product = document.getElementById('new-product').value;
+            const qty = document.getElementById('new-qty').value;
+
+            if(!shipTo || !product || !qty) return alert("Fill all material fields");
+
+            const map = getMappingData();
+            const match = map[shipTo] || {};
+
+            order.items.push({
+                id: Date.now(),
+                shipTo,
+                product,
+                qty,
+                plant: match.Plant || '',
+                loc: match['Storage Location'] || '',
+                type: match.Type || ''
+            });
+
+            // Clear inputs
+            document.getElementById('new-product').value = '';
+            document.getElementById('new-qty').value = '';
+            document.getElementById('new-product').focus();
+
+            renderMaterialsTable();
+        }
+
+        function removeMaterial(itemId) {
+            if(!activeOrderId) return;
+            const order = orders.find(o => o.id === activeOrderId);
+            order.items = order.items.filter(i => i.id !== itemId);
+            renderMaterialsTable();
+        }
+
+        // --- RENDERING ---
+
+        function renderUI() {
+            renderOrderList();
+            
+            const emptyState = document.getElementById('editor-empty');
+            const contentState = document.getElementById('editor-content');
+
+            if(!activeOrderId) {
+                emptyState.classList.remove('hidden');
+                contentState.classList.add('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                contentState.classList.remove('hidden');
+                contentState.classList.add('flex');
+                
+                // Populate Forms
+                const order = orders.find(o => o.id === activeOrderId);
+                if(order) {
+                    document.getElementById('active-eo').value = order.header.eo;
+                    document.getElementById('active-wbs').value = order.header.wbs;
+                    document.getElementById('active-date').value = order.header.date;
+                    document.getElementById('active-version').value = order.header.version;
+                    
+                    document.getElementById('active-site').value = order.header.site;
+                    document.getElementById('active-salesorg').value = order.header.salesOrg;
+                    document.getElementById('active-dist').value = order.header.dist;
+                    document.getElementById('active-div').value = order.header.div;
+                    document.getElementById('active-soff').value = order.header.soff;
+                    document.getElementById('active-sgrp').value = order.header.sgrp;
+
+                    renderMaterialsTable();
+                }
+            }
+        }
+
+        function renderOrderList() {
+            const listEl = document.getElementById('order-list');
+            document.getElementById('order-total-badge').innerText = orders.length;
+            
+            listEl.innerHTML = orders.map((order, idx) => {
+                const isActive = order.id === activeOrderId;
+                const displayTitle = order.header.eo ? `EO: ${order.header.eo}` : `Order #${idx + 1}`;
+                const itemCount = order.items.length;
+                
+                return `
+                <div onclick="setActiveOrder(${order.id})" 
+                     class="group cursor-pointer p-3 rounded-lg border transition-all relative ${isActive ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-500 dark:border-blue-500 shadow-sm' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-slate-500'}">
+                    
+                    ${isActive ? '<div class="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 rounded-l-lg"></div>' : ''}
+                    
+                    <div class="flex justify-between items-start mb-1 pl-2">
+                        <span class="font-bold text-sm ${isActive ? 'text-blue-700 dark:text-blue-300' : 'text-slate-700 dark:text-slate-200'}">${displayTitle}</span>
+                        ${isActive ? '<i data-lucide="check-circle-2" class="w-3 h-3 text-blue-500"></i>' : ''}
+                    </div>
+                    <div class="flex justify-between items-center pl-2">
+                        <span class="text-xs text-slate-500 font-mono">${order.header.wbs || 'No WBS'}</span>
+                        <span class="text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 px-1.5 py-0.5 rounded-full">${itemCount} items</span>
+                    </div>
+                </div>
+                `;
+            }).join('');
+            
+            lucide.createIcons();
+        }
+
+        function renderMaterialsTable() {
+            const tbody = document.getElementById('materials-tbody');
+            const order = orders.find(o => o.id === activeOrderId);
+            document.getElementById('material-count').innerText = `${order.items.length} items`;
+
+            if(order.items.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-slate-400">No materials added to this order yet.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = order.items.map((item, idx) => `
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                    <td class="px-4 py-3 font-mono text-slate-400">${(idx+1)*10}</td>
+                    <td class="px-4 py-3 font-medium">${item.shipTo}</td>
+                    <td class="px-4 py-3 text-slate-600 dark:text-slate-300">${item.product}</td>
+                    <td class="px-4 py-3 text-right font-mono">${item.qty}</td>
+                    <td class="px-4 py-3">
+                         <div class="flex gap-2 text-[10px]">
+                            <span class="px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">P: ${item.plant}</span>
+                            <span class="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">L: ${item.loc}</span>
+                            <span class="px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">T: ${item.type}</span>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        <button onclick="removeMaterial(${item.id})" class="text-slate-400 hover:text-rose-500 transition-colors">
+                            <i data-lucide="trash" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+            
+            lucide.createIcons();
+        }
+
+        // --- HELPERS & EXPORT ---
+
+        function parseCSV(csvText) {
+            const lines = csvText.trim().split('\n');
+            if (lines.length < 1) return [];
+            const headers = lines[0].split(',').map(h => h.trim());
+            return lines.slice(1).map(line => {
+                const values = line.split(',');
+                return headers.reduce((obj, header, index) => {
+                    obj[header] = values[index] ? values[index].trim() : '';
+                    return obj;
+                }, {});
+            });
+        }
+
+        function getMappingData() {
+            const raw = document.getElementById('cfg-mapping').value;
+            const data = parseCSV(raw);
+            return data.reduce((acc, row) => {
+                acc[row['Ship to Code']] = row;
+                return acc;
+            }, {});
+        }
+
+        function updateDropdownFromConfig() {
+            const map = getMappingData();
+            const select = document.getElementById('new-shipto');
+            select.innerHTML = '<option value="">Select...</option>';
+            Object.keys(map).sort().forEach(code => {
+                const opt = document.createElement('option');
+                opt.value = code;
+                opt.innerText = code;
+                select.appendChild(opt);
+            });
+        }
+
+        function updateLookupPreview() {
+            const shipTo = document.getElementById('new-shipto').value;
+            const map = getMappingData();
+            const match = map[shipTo];
+            const el = document.getElementById('lookup-preview');
+            
+            if(match) {
+                el.innerHTML = `
+                    <span class="text-emerald-500 font-bold">Plant: ${match.Plant}</span>
+                    <span class="text-blue-500 font-bold">Loc: ${match['Storage Location']}</span>
+                    <span class="text-purple-500 font-bold">Type: ${match.Type}</span>
+                `;
+                el.classList.remove('opacity-0');
+            } else {
+                el.classList.add('opacity-0');
+            }
+        }
+
+        function pad2(num) {
+            return num.toString().padStart(2, '0');
+        }
+
+        function exportExcel() {
+            const validOrders = orders.filter(o => o.items.length > 0);
+            if(validOrders.length === 0) return alert("Add at least one order with materials.");
+
+            const headerCsvText = document.getElementById('cfg-headers').value;
+            const hLines = headerCsvText.trim().split('\n');
+            const sysHeaders = hLines[0].split(',').map(s=>s.trim());
+            const dispHeaders = hLines[1].split(',').map(s=>s.trim());
+
+            let currentSalesOrderID = 0;
+            let flatRows = [];
+
+            validOrders.forEach(order => {
+                currentSalesOrderID++;
+                let currentItemID = 0;
+
+                order.items.forEach(item => {
+                    currentItemID += 10;
+                    
+                    const wbsShort = order.header.wbs ? order.header.wbs.trim().substring(0, 5) : "";
+                    const soldTo = "P" + wbsShort;
+                    const custRef = `EO-${order.header.eo}-${pad2(order.header.version)}`;
+                    const dateClean = order.header.date.replace(/-/g, '');
+
+                    const rowMap = {
+                        'HEADER.SALESORDER': currentSalesOrderID,
+                        'HEADER.SALESORDERTYPE': item.type,
+                        'HEADER.SALESORGANIZATION': order.header.salesOrg,
+                        'HEADER.DISTRIBUTIONCHANNEL': order.header.dist,
+                        'HEADER.ORGANIZATIONDIVISION': order.header.div,
+                        'HEADER.SALESOFFICE': order.header.soff,
+                        'HEADER.SALESGROUP': order.header.sgrp,
+                        'HEADER.SOLDTOPARTY': soldTo,
+                        'HEADER.SHIPTOPARTY': item.shipTo,
+                        'HEADER.ZZ1_NETWORKSITECODE_SDH': order.header.site,
+                        'HEADER.PURCHASEORDERBYCUSTOMER': custRef,
+                        'HEADER.REQUESTEDDELIVERYDATE': dateClean,
+                        'HEADER.ZZ1_VSNMR_V_SDH': 'IMPORT_FIORI',
+                        'HEADER.ZZ1_PS_POSID_SDH': order.header.wbs,
+                        'ITEM.SALESORDERITEM': currentItemID,
+                        'ITEM.PRODUCT': item.product,
+                        'ITEM.REQUESTEDQUANTITY': item.qty,
+                        'ITEM.REQUESTEDQUANTITYUNIT': '',
+                        'ITEM.SALESORDERITEMCATEGORY': '',
+                        'ITEM.PLANT': item.plant,
+                        'ITEM.STORAGELOCATION': item.loc
+                    };
+                    
+                    flatRows.push(sysHeaders.map(k => rowMap[k] || ''));
+                });
+            });
+
+            const wb = XLSX.utils.book_new();
+            const wsData = [sysHeaders, dispHeaders, ...flatRows];
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            XLSX.utils.book_append_sheet(wb, ws, "Upload Data");
+            
+            const name = validOrders[0].header.eo || 'Draft';
+            XLSX.writeFile(wb, `YES4HANA_Upload_${name}.xlsx`);
+        }
+
+        // --- THEME & CONFIG DOWNLOAD ---
+        function toggleTheme() {
+            const html = document.documentElement;
+            const isDark = html.classList.contains('dark');
+            const newTheme = isDark ? 'light' : 'dark';
+            applyTheme(newTheme);
+            localStorage.setItem('theme', newTheme);
+        }
+        function applyTheme(t) {
+            const html = document.documentElement;
+            const sun = document.getElementById('icon-sun');
+            const moon = document.getElementById('icon-moon');
+            if(t === 'dark') { html.classList.add('dark'); sun.classList.remove('hidden'); moon.classList.add('hidden'); }
+            else { html.classList.remove('dark'); sun.classList.add('hidden'); moon.classList.remove('hidden'); }
+        }
+        function switchTab(t) {
+            if(t === 'editor') {
+                document.getElementById('tab-editor').classList.remove('hidden');
+                document.getElementById('tab-settings').classList.add('hidden');
+                document.getElementById('btn-tab-editor').classList.add('bg-slate-200','dark:bg-slate-800','text-slate-900','dark:text-white');
+                document.getElementById('btn-tab-editor').classList.remove('text-slate-500');
+                document.getElementById('btn-tab-settings').classList.remove('bg-slate-200','dark:bg-slate-800','text-slate-900','dark:text-white');
+            } else {
+                document.getElementById('tab-editor').classList.add('hidden');
+                document.getElementById('tab-settings').classList.remove('hidden');
+                document.getElementById('btn-tab-settings').classList.add('bg-slate-200','dark:bg-slate-800','text-slate-900','dark:text-white');
+                document.getElementById('btn-tab-settings').classList.remove('text-slate-500');
+                document.getElementById('btn-tab-editor').classList.remove('bg-slate-200','dark:bg-slate-800','text-slate-900','dark:text-white');
+            }
+        }
+        function downloadSelfWithConfig() {
+            let html = document.documentElement.outerHTML;
+            const safeMap = document.getElementById('cfg-mapping').value.replace(/`/g, '\\`');
+            const safeHead = document.getElementById('cfg-headers').value.replace(/`/g, '\\`');
+            html = html.replace(/(const DEFAULT_MAPPING_CSV = `)([\s\S]*?)(`;)/, `$1${safeMap}$3`);
+            html = html.replace(/(const DEFAULT_HEADERS_CSV = `)([\s\S]*?)(`;)/, `$1${safeHead}$3`);
+            
+            const blob = new Blob([html], {type: 'text/html'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'NMO_Tool_Configured.html';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+        function resetDefaults() {
+            if(confirm("Reset config?")) {
+                document.getElementById('cfg-mapping').value = DEFAULT_MAPPING_CSV;
+                document.getElementById('cfg-headers').value = DEFAULT_HEADERS_CSV;
+                updateDropdownFromConfig();
+            }
+        }
+    </script>
+</body>
+</html>
