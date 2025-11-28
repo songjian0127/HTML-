@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NMO Generator Tool</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- XLSX Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Config -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace'],
+                    },
+                    screens: { 'xs': '475px' }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap');
+        body { transition: background-color 0.2s, color 0.2s; }
+        button { cursor: pointer; }
+        input, textarea, select { cursor: text; }
+        select { cursor: pointer; }
+        
+        /* Table Input Styling - Updated for better visibility */
+        .table-input {
+            background: transparent;
+            border: 1px solid rgba(148, 163, 184, 0.4); /* Visible border */
+            width: 100%;
+            padding: 6px 10px; /* Increased padding */
+            border-radius: 4px;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .dark .table-input {
+            border-color: rgba(255, 255, 255, 0.2);
+            color: #e2e8f0;
+        }
+        .table-input:hover {
+            background-color: rgba(0, 0, 0, 0.02);
+            border-color: rgba(148, 163, 184, 0.8);
+        }
+        .dark .table-input:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+        .table-input:focus {
+            background-color: white;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+        .dark .table-input:focus {
+            background-color: rgba(30, 41, 59, 0.8);
+        }
+        
+        .dark ::-webkit-scrollbar { width: 6px; height: 6px; }
+        .dark ::-webkit-scrollbar-track { background: #0f172a; }
+        .dark ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-200 font-sans h-[100dvh] flex flex-col overflow-hidden">
+
+    <!-- Navigation -->
+    <nav class="shrink-0 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 z-50">
+        <div class="w-full px-4">
+            <div class="flex justify-between items-center h-14">
+                <div class="flex items-center gap-2 md:gap-3">
+                    <div class="bg-blue-600 p-1.5 rounded-lg text-white shrink-0">
+                        <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-sm md:text-base font-bold leading-tight truncate max-w-[120px] xs:max-w-none">NMO Generator</h1>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button onclick="toggleTheme()" class="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer" title="Switch Theme">
+                        <i id="icon-sun" data-lucide="sun" class="w-5 h-5 hidden"></i>
+                        <i id="icon-moon" data-lucide="moon" class="w-5 h-5 hidden"></i>
+                    </button>
+                    <div class="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1 hidden sm:block"></div>
+                    <button onclick="switchTab('editor')" id="btn-tab-editor" class="px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition-all bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-white cursor-pointer">Editor</button>
+                    <button onclick="switchTab('settings')" id="btn-tab-settings" class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition-all text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer">Config</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 flex overflow-hidden relative">
+        
+        <!-- EDITOR VIEW -->
+        <div id="tab-editor" class="flex-1 flex w-full h-full relative">
+            
+            <!-- LEFT SIDEBAR -->
+            <div id="sidebar-panel" class="w-full md:w-80 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col absolute md:relative inset-0 z-20 md:z-auto transition-transform duration-300">
+                <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
+                    <span class="text-xs font-bold uppercase text-slate-500 tracking-wider">Orders List</span>
+                    <span id="order-total-badge" class="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+                </div>
+                
+                <div id="order-list" class="flex-1 overflow-y-auto p-2 space-y-2"></div>
+
+                <div class="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex flex-col gap-3 shrink-0">
+                    <div>
+                        <button onclick="addNewOrder()" class="w-full py-3 md:py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer">
+                            <i data-lucide="plus" class="w-4 h-4"></i> New Order
+                        </button>
+                        <button onclick="exportExcel()" class="w-full mt-3 md:mt-2 py-3 md:py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer">
+                            <i data-lucide="download" class="w-4 h-4"></i> Export All Data
+                        </button>
+                    </div>
+                    
+                    <div class="pt-2 border-t border-slate-200 dark:border-slate-800 text-center">
+                        <p class="text-[10px] text-slate-400 dark:text-slate-500 leading-tight">
+                            &copy; <span id="year"></span> Efiniti Telecommunications Services.<br>For Internal Use Only.
+                        </p>
+                        <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-1 font-medium">Developed by Jian Song</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT MAIN: ORDER EDITOR -->
+            <div id="editor-panel" class="w-full md:flex-1 bg-slate-50 dark:bg-slate-950 flex flex-col h-full overflow-hidden absolute md:relative inset-0 z-30 md:z-auto translate-x-full md:translate-x-0 transition-transform duration-300">
+                
+                <div id="editor-empty" class="hidden md:flex absolute inset-0 flex-col items-center justify-center text-slate-400 z-0 pointer-events-none">
+                    <i data-lucide="arrow-left-circle" class="w-16 h-16 mb-4 opacity-50"></i>
+                    <p class="text-lg font-medium">Select or create an order to begin</p>
+                </div>
+
+                <div id="editor-content" class="flex flex-col h-full w-full relative z-10 bg-slate-50 dark:bg-slate-950">
+                    
+                    <!-- Mobile Header -->
+                    <div class="md:hidden p-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 shrink-0">
+                        <button onclick="showListMobile()" class="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg flex items-center gap-1 text-sm font-medium cursor-pointer">
+                            <i data-lucide="chevron-left" class="w-5 h-5"></i> Back
+                        </button>
+                        <span class="font-bold text-sm text-slate-800 dark:text-white">Edit Order</span>
+                    </div>
+
+                    <!-- Scrollable Form Area -->
+                    <div class="flex-1 overflow-y-auto no-scrollbar">
+                        <!-- Header Form -->
+                        <div class="p-4 md:p-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm">
+                            <div class="flex justify-between items-start mb-4">
+                                <h2 class="hidden md:flex text-xl font-bold text-slate-800 dark:text-white items-center gap-2">
+                                    <i data-lucide="package" class="w-5 h-5 text-blue-500"></i>
+                                    Order Header
+                                </h2>
+                                <div class="md:hidden"></div> 
+
+                                <div class="flex gap-2 w-full md:w-auto justify-end">
+                                    <button onclick="duplicateOrder()" class="flex-1 md:flex-none justify-center text-xs flex items-center gap-1 px-3 py-2 md:py-1.5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors border border-transparent dark:border-slate-700 cursor-pointer">
+                                        <i data-lucide="copy" class="w-3 h-3"></i> Clone
+                                    </button>
+                                    <button onclick="deleteCurrentOrder()" class="flex-1 md:flex-none justify-center text-xs flex items-center gap-1 px-3 py-2 md:py-1.5 rounded bg-rose-50 dark:bg-rose-900/20 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 transition-colors border border-transparent dark:border-rose-900/30 cursor-pointer">
+                                        <i data-lucide="trash-2" class="w-3 h-3"></i> Delete
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                                <div class="md:col-span-3 flex flex-col gap-1.5">
+                                    <label class="text-xs font-bold text-slate-500 uppercase">EO Number <span class="text-rose-500">*</span></label>
+                                    <input type="text" id="active-eo" oninput="updateActiveOrder('eo', this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-3 md:py-2 text-base md:text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full font-mono cursor-text">
+                                </div>
+                                <div class="md:col-span-3 flex flex-col gap-1.5">
+                                    <label class="text-xs font-bold text-slate-500 uppercase">WBS <span class="text-rose-500">*</span></label>
+                                    <input type="text" id="active-wbs" oninput="updateActiveOrder('wbs', this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-3 md:py-2 text-base md:text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full font-mono cursor-text">
+                                </div>
+                                
+                                <div class="md:col-span-6 flex flex-col gap-1.5">
+                                    <label class="text-xs font-bold text-slate-500 uppercase">Ship-to Code <span class="text-rose-500">*</span></label>
+                                    <select id="active-shipto" onchange="updateActiveOrder('shipTo', this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-3 md:py-2 text-base md:text-sm outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
+                                        <option value="">Select...</option>
+                                    </select>
+                                    <div id="header-lookup-preview" class="flex flex-wrap gap-2 text-xs opacity-0 transition-opacity duration-300 min-h-[20px] mt-1"></div>
+                                </div>
+                                
+                                <div class="md:col-span-3 flex flex-col gap-1.5">
+                                    <label class="text-xs font-bold text-slate-500 uppercase">Req. Date</label>
+                                    <input type="date" id="active-date" onchange="updateActiveOrder('date', this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-3 md:py-2 text-base md:text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full cursor-pointer">
+                                </div>
+                                <div class="md:col-span-3 flex flex-col gap-1.5">
+                                    <label class="text-xs font-bold text-slate-500 uppercase">Version</label>
+                                    <input type="number" id="active-version" oninput="updateActiveOrder('version', this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-3 md:py-2 text-base md:text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full cursor-text">
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4">
+                                <button onclick="document.getElementById('active-advanced').classList.toggle('hidden')" class="text-xs text-blue-500 hover:text-blue-400 flex items-center gap-1 py-2 cursor-pointer">
+                                    <i data-lucide="sliders" class="w-3 h-3"></i> Show Default Values (Site, Sales Org...)
+                                </button>
+                                <div id="active-advanced" class="hidden mt-2 grid grid-cols-2 md:grid-cols-6 gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
+                                    <div><label class="text-[10px] uppercase font-bold text-slate-500">Site</label><input id="active-site" oninput="updateActiveOrder('site', this.value)" class="w-full text-xs bg-transparent border-b border-slate-300 dark:border-slate-600 focus:outline-none py-1.5 cursor-text"></div>
+                                    <div><label class="text-[10px] uppercase font-bold text-slate-500">Sales Org</label><input id="active-salesorg" oninput="updateActiveOrder('salesOrg', this.value)" class="w-full text-xs bg-transparent border-b border-slate-300 dark:border-slate-600 focus:outline-none py-1.5 cursor-text"></div>
+                                    <div><label class="text-[10px] uppercase font-bold text-slate-500">Dist Ch.</label><input id="active-dist" oninput="updateActiveOrder('dist', this.value)" class="w-full text-xs bg-transparent border-b border-slate-300 dark:border-slate-600 focus:outline-none py-1.5 cursor-text"></div>
+                                    <div><label class="text-[10px] uppercase font-bold text-slate-500">Div</label><input id="active-div" oninput="updateActiveOrder('div', this.value)" class="w-full text-xs bg-transparent border-b border-slate-300 dark:border-slate-600 focus:outline-none py-1.5 cursor-text"></div>
+                                    <div><label class="text-[10px] uppercase font-bold text-slate-500">Office</label><input id="active-soff" oninput="updateActiveOrder('soff', this.value)" class="w-full text-xs bg-transparent border-b border-slate-300 dark:border-slate-600 focus:outline-none py-1.5 cursor-text"></div>
+                                    <div><label class="text-[10px] uppercase font-bold text-slate-500">Group</label><input id="active-sgrp" oninput="updateActiveOrder('sgrp', this.value)" class="w-full text-xs bg-transparent border-b border-slate-300 dark:border-slate-600 focus:outline-none py-1.5 cursor-text"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Materials Area -->
+                        <div class="p-4 md:p-6 pb-24 md:pb-6">
+                            
+                            <!-- Bulk Add Bar -->
+                            <div class="flex items-center gap-2 mb-4 bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                                <div class="flex items-center gap-2">
+                                    <label class="text-xs font-bold text-slate-500 uppercase">Add</label>
+                                    <input type="number" id="bulk-count" value="1" min="1" max="50" class="w-16 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-2 text-sm text-center font-bold focus:ring-2 focus:ring-blue-500 outline-none">
+                                    <label class="text-xs font-bold text-slate-500 uppercase">Empty Row(s)</label>
+                                </div>
+                                <button onclick="addEmptyRows()" class="ml-auto px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg shadow-sm transition-colors text-sm flex items-center gap-2 cursor-pointer">
+                                    <i data-lucide="plus" class="w-4 h-4"></i> Add Rows
+                                </button>
+                            </div>
+
+                            <!-- Table Container -->
+                            <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
+                                <div class="p-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex justify-between items-center">
+                                    <h3 class="font-bold text-sm">Materials List</h3>
+                                    <span class="text-xs text-slate-500" id="material-count">0 items</span>
+                                </div>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-left text-sm min-w-[600px]">
+                                        <thead class="bg-slate-100 dark:bg-slate-950 text-slate-500 uppercase text-xs shadow-sm">
+                                            <tr>
+                                                <th class="px-4 py-3 w-12 text-center">#</th>
+                                                <th class="px-4 py-3 w-48">SAP Material <span class="text-rose-500">*</span></th>
+                                                <th class="px-4 py-3 w-32 text-right">Qty <span class="text-rose-500">*</span></th>
+                                                <th class="px-4 py-3">Mapping Info (Shared)</th>
+                                                <th class="px-4 py-3 text-right w-12">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="materials-tbody" class="divide-y divide-slate-200 dark:divide-slate-800">
+                                            <!-- Rows -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- SETTINGS TAB (Hidden by default) -->
+        <div id="tab-settings" class="hidden flex-1 w-full bg-slate-50 dark:bg-slate-950 overflow-y-auto p-4 md:p-8 relative z-40">
+            <!-- (Config content remains same) -->
+            <div class="max-w-4xl mx-auto space-y-6">
+                <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <h2 class="text-2xl font-bold">Configuration</h2>
+                    <div class="flex gap-2 w-full md:w-auto">
+                        <button onclick="downloadSelfWithConfig()" class="flex-1 md:flex-none flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg shadow-sm cursor-pointer">
+                            <i data-lucide="save" class="w-4 h-4"></i> Download Tool with Config
+                        </button>
+                        <button onclick="resetDefaults()" class="px-3 py-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-sm border border-slate-200 dark:border-slate-700 cursor-pointer">Reset</button>
+                    </div>
+                </div>
+                
+                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 md:p-6">
+                    <h3 class="font-bold mb-2 flex items-center gap-2 text-blue-500"><i data-lucide="map" class="w-4 h-4"></i> Ship-to Mapping (CSV)</h3>
+                    <textarea id="cfg-mapping" onchange="updateDropdownFromConfig()" class="w-full h-48 bg-slate-50 dark:bg-slate-950 font-mono text-xs p-4 rounded-lg border border-slate-300 dark:border-slate-700 focus:border-blue-500 outline-none cursor-text"></textarea>
+                </div>
+
+                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 md:p-6">
+                    <h3 class="font-bold mb-2 flex items-center gap-2 text-emerald-500"><i data-lucide="table-properties" class="w-4 h-4"></i> Header Definitions (CSV)</h3>
+                    <textarea id="cfg-headers" class="w-full h-32 bg-slate-50 dark:bg-slate-950 font-mono text-xs p-4 rounded-lg border border-slate-300 dark:border-slate-700 focus:border-blue-500 outline-none cursor-text"></textarea>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Logic -->
+    <script>
+        const DEFAULT_MAPPING_CSV = `Ship to Code,Plant,Storage Location,Type
+PNSWEFI,P22,NS01,ZNMO
+PACTMIT2,P22,NS01,ZNMO
+PVICEFI,P22,NS01,ZNMO
+PNSWROS,2P11,A000,ZRDC
+PSAREG,5P11,A000,ZRDC
+PVICMUL,3P11,A000,ZRDC
+PWALOCK,6P11,A000,ZRDC
+PQLDMUR,4P12,A000,ZRDC`;
+
+        const DEFAULT_HEADERS_CSV = `HEADER.SALESORDER,HEADER.SALESORDERTYPE,HEADER.SALESORGANIZATION,HEADER.DISTRIBUTIONCHANNEL,HEADER.ORGANIZATIONDIVISION,HEADER.SALESOFFICE,HEADER.SALESGROUP,HEADER.SOLDTOPARTY,HEADER.SHIPTOPARTY,HEADER.ZZ1_NETWORKSITECODE_SDH,HEADER.PURCHASEORDERBYCUSTOMER,HEADER.REQUESTEDDELIVERYDATE,HEADER.ZZ1_VSNMR_V_SDH,HEADER.ZZ1_PS_POSID_SDH,ITEM.SALESORDERITEM,ITEM.PRODUCT,ITEM.REQUESTEDQUANTITY,ITEM.REQUESTEDQUANTITYUNIT,ITEM.SALESORDERITEMCATEGORY,ITEM.PLANT,ITEM.STORAGELOCATION
+*Sales Order (Temporary ID),*Sales Order Type,*Sales Organization,*Distribution Channel,*Division,*Sales Office,*Sales Group,*Sold-to Party,Ship-to Party,Site Code,Customer Reference,Requested Delivery Date,Version,WBS Header,*Item (Temporary ID),*Product,*Requested Quantity,Requested Qty Unit,Item Category,Plant,Storage Location`;
+
+        let orders = [];
+        let activeOrderId = null;
+
+        window.onload = function() {
+            lucide.createIcons();
+            document.getElementById('year').innerText = new Date().getFullYear();
+            
+            document.getElementById('cfg-mapping').value = DEFAULT_MAPPING_CSV;
+            document.getElementById('cfg-headers').value = DEFAULT_HEADERS_CSV;
+            
+            updateDropdownFromConfig();
+            
+            // --- THEME INITIALIZATION ---
+            // 1. Check LocalStorage
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+                applyTheme(savedTheme);
+            } else {
+                // 2. Check System Preference
+                if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    applyTheme('dark');
+                } else {
+                    applyTheme('light');
+                }
+            }
+
+            addNewOrder();
+            checkMobileView();
+        };
+
+        window.onresize = checkMobileView;
+
+        function checkMobileView() {
+            const isMobile = window.innerWidth < 768;
+            const sidebar = document.getElementById('sidebar-panel');
+            const editor = document.getElementById('editor-panel');
+            const empty = document.getElementById('editor-empty');
+
+            if (!isMobile) {
+                sidebar.classList.remove('-translate-x-full');
+                editor.classList.remove('translate-x-full');
+                empty.classList.remove('hidden');
+                empty.classList.add('flex');
+            } else {
+                if(activeOrderId) showEditorMobile();
+                else showListMobile();
+            }
+        }
+
+        function showListMobile() {
+            if(window.innerWidth >= 768) return;
+            document.getElementById('sidebar-panel').classList.remove('-translate-x-full');
+            document.getElementById('editor-panel').classList.add('translate-x-full');
+        }
+
+        function showEditorMobile() {
+            if(window.innerWidth >= 768) return;
+            document.getElementById('sidebar-panel').classList.add('-translate-x-full');
+            document.getElementById('editor-panel').classList.remove('translate-x-full');
+        }
+
+        function addNewOrder() {
+            const newOrder = {
+                id: Date.now(),
+                header: {
+                    eo: '', wbs: '', shipTo: '', date: new Date().toISOString().split('T')[0],
+                    version: 1, site: 'PMISC', salesOrg: 'NNSO', dist: '03', div: '01', soff: 'NSOF', sgrp: 'N02'
+                },
+                items: []
+            };
+            orders.push(newOrder);
+            setActiveOrder(newOrder.id);
+        }
+
+        function duplicateOrder() {
+            if(!activeOrderId) return;
+            const original = orders.find(o => o.id === activeOrderId);
+            if(!original) return;
+            const copy = JSON.parse(JSON.stringify(original));
+            copy.id = Date.now();
+            copy.header.eo = ''; 
+            copy.header.wbs = '';
+            copy.header.shipTo = '';
+            copy.items.forEach(item => item.id = Date.now() + Math.random());
+            orders.push(copy);
+            setActiveOrder(copy.id);
+        }
+
+        function deleteCurrentOrder() {
+            if(!activeOrderId) return;
+            if(!confirm("Delete this order?")) return;
+            orders = orders.filter(o => o.id !== activeOrderId);
+            if(orders.length > 0) setActiveOrder(orders[orders.length - 1].id);
+            else { activeOrderId = null; addNewOrder(); }
+        }
+
+        function setActiveOrder(id) {
+            activeOrderId = id;
+            renderUI();
+            showEditorMobile();
+        }
+
+        function updateActiveOrder(field, value) {
+            if(!activeOrderId) return;
+            const order = orders.find(o => o.id === activeOrderId);
+            if(!order) return;
+            order.header[field] = value;
+            
+            if(field === 'eo') renderOrderList();
+            if(field === 'shipTo') {
+                updateHeaderLookupPreview();
+                renderMaterialsTable();
+            }
+        }
+
+        function addEmptyRows() {
+            if(!activeOrderId) return;
+            const order = orders.find(o => o.id === activeOrderId);
+            
+            if(!order.header.shipTo) {
+                alert("Please select a Ship-to Code in the Header section first.");
+                document.getElementById('active-shipto').focus();
+                return;
+            }
+
+            const count = parseInt(document.getElementById('bulk-count').value) || 1;
+            
+            for(let i=0; i<count; i++) {
+                order.items.push({
+                    id: Date.now() + Math.random(),
+                    product: '',
+                    qty: ''
+                });
+            }
+            renderMaterialsTable();
+        }
+
+        function updateMaterial(itemId, field, value) {
+            if(!activeOrderId) return;
+            const order = orders.find(o => o.id === activeOrderId);
+            const item = order.items.find(i => i.id === itemId);
+            if(item) {
+                item[field] = value;
+            }
+        }
+
+        function removeMaterial(itemId) {
+            if(!activeOrderId) return;
+            const order = orders.find(o => o.id === activeOrderId);
+            order.items = order.items.filter(i => i.id !== itemId);
+            renderMaterialsTable();
+        }
+
+        function renderUI() {
+            renderOrderList();
+            const empty = document.getElementById('editor-empty');
+            
+            if(!activeOrderId) {
+            } else {
+                if(window.innerWidth >= 768) empty.classList.add('hidden');
+                
+                const order = orders.find(o => o.id === activeOrderId);
+                if(order) {
+                    // Populate header fields
+                    const headerFields = ['eo', 'wbs', 'shipto', 'date', 'version', 'site', 'salesorg', 'dist', 'div', 'soff', 'sgrp'];
+                    headerFields.forEach(f => {
+                        const el = document.getElementById(`active-${f}`);
+                        if(el) {
+                            if(f === 'salesorg') el.value = order.header.salesOrg;
+                            else if (f === 'shipto') el.value = order.header.shipTo;
+                            else el.value = order.header[f];
+                        }
+                    });
+
+                    updateHeaderLookupPreview();
+                    renderMaterialsTable();
+                }
+            }
+        }
+
+        function renderOrderList() {
+            const listEl = document.getElementById('order-list');
+            document.getElementById('order-total-badge').innerText = orders.length;
+            
+            listEl.innerHTML = orders.map((order, idx) => {
+                const isActive = order.id === activeOrderId;
+                const displayTitle = order.header.eo ? `EO: ${order.header.eo}` : `Order #${idx + 1}`;
+                const itemCount = order.items.length;
+                
+                return `
+                <div onclick="setActiveOrder(${order.id})" 
+                     class="group cursor-pointer p-3 rounded-lg border transition-all relative ${isActive ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-500 dark:border-blue-500 shadow-sm' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-slate-500'}">
+                    ${isActive ? '<div class="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 rounded-l-lg"></div>' : ''}
+                    <div class="flex justify-between items-start mb-1 pl-2">
+                        <span class="font-bold text-sm ${isActive ? 'text-blue-700 dark:text-blue-300' : 'text-slate-700 dark:text-slate-200'}">${displayTitle}</span>
+                        ${isActive ? '<i data-lucide="check-circle-2" class="w-4 h-4 text-blue-500"></i>' : '<i data-lucide="chevron-right" class="w-4 h-4 text-slate-300 md:hidden"></i>'}
+                    </div>
+                    <div class="flex justify-between items-center pl-2">
+                        <span class="text-xs text-slate-500 font-mono">${order.header.wbs || 'No WBS'}</span>
+                        <span class="text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 px-1.5 py-0.5 rounded-full">${itemCount} items</span>
+                    </div>
+                </div>`;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function renderMaterialsTable() {
+            const tbody = document.getElementById('materials-tbody');
+            const order = orders.find(o => o.id === activeOrderId);
+            const map = getMappingData();
+            const mapping = map[order.header.shipTo] || {};
+            
+            document.getElementById('material-count').innerText = `${order.items.length} items`;
+
+            if(order.items.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-slate-400">No materials added yet.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = order.items.map((item, idx) => `
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                    <td class="px-4 py-3 font-mono text-slate-400 text-xs text-center">${(idx+1)*10}</td>
+                    <td class="px-2 py-2">
+                        <input type="text" value="${item.product}" placeholder="Material No." 
+                               onchange="updateMaterial(${item.id}, 'product', this.value)"
+                               class="table-input font-medium text-slate-700 dark:text-slate-200 placeholder:text-slate-400">
+                    </td>
+                    <td class="px-2 py-2">
+                        <input type="number" value="${item.qty}" placeholder="0" 
+                               onchange="updateMaterial(${item.id}, 'qty', this.value)"
+                               class="table-input text-right font-mono text-slate-700 dark:text-slate-200 placeholder:text-slate-400">
+                    </td>
+                    <td class="px-4 py-3">
+                         <div class="flex flex-col md:flex-row gap-1 md:gap-2 text-[10px]">
+                            <span class="px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 whitespace-nowrap">P: ${mapping.Plant || '?'}</span>
+                            <span class="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 whitespace-nowrap">L: ${mapping['Storage Location'] || '?'}</span>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        <button onclick="removeMaterial(${item.id})" class="text-slate-400 hover:text-rose-500 transition-colors p-1 cursor-pointer">
+                            <i data-lucide="trash" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        // --- EXPORT LOGIC ---
+async function exportExcel() {
+            const validOrders = orders.filter(o => o.items.length > 0);
+            if(validOrders.length === 0) return alert("Add at least one order with materials.");
+            
+            const missingShipTo = validOrders.find(o => !o.header.shipTo);
+            if(missingShipTo) return alert(`Order EO: ${missingShipTo.header.eo || 'Unnamed'} is missing a Ship-to Code.`);
+
+            // Construct Data
+            const headerCsvText = document.getElementById('cfg-headers').value;
+            const hLines = headerCsvText.trim().split('\n');
+            const sysHeaders = hLines[0].split(',').map(s=>s.trim());
+            const dispHeaders = hLines[1].split(',').map(s=>s.trim());
+            let currentSalesOrderID = 0; let flatRows = [];
+            
+            const map = getMappingData();
+
+            validOrders.forEach(order => {
+                currentSalesOrderID++;
+                let currentItemID = 0;
+                const mapping = map[order.header.shipTo] || {};
+                
+                // --- FIX 1: Trim inputs to remove accidental spaces ---
+                const wbsClean = order.header.wbs ? order.header.wbs.trim() : "";
+                const eoClean = order.header.eo ? order.header.eo.trim() : "";
+                
+                order.items.forEach(item => {
+                    currentItemID += 10;
+                    // Use clean WBS for logic
+                    const wbsShort = wbsClean.substring(0, 5);
+                    const soldTo = "P" + wbsShort;
+                    
+                    // Use clean EO for reference
+                    const custRef = `EO-${eoClean}-${pad2(order.header.version)}`;
+                    const dateClean = order.header.date.replace(/-/g, '');
+                    
+                    const rowMap = {
+                        'HEADER.SALESORDER': currentSalesOrderID, 'HEADER.SALESORDERTYPE': mapping.Type,
+                        'HEADER.SALESORGANIZATION': order.header.salesOrg, 'HEADER.DISTRIBUTIONCHANNEL': order.header.dist,
+                        'HEADER.ORGANIZATIONDIVISION': order.header.div, 'HEADER.SALESOFFICE': order.header.soff,
+                        'HEADER.SALESGROUP': order.header.sgrp, 'HEADER.SOLDTOPARTY': soldTo,
+                        'HEADER.SHIPTOPARTY': order.header.shipTo, 'HEADER.ZZ1_NETWORKSITECODE_SDH': order.header.site,
+                        'HEADER.PURCHASEORDERBYCUSTOMER': custRef, 'HEADER.REQUESTEDDELIVERYDATE': dateClean,
+                        'HEADER.ZZ1_VSNMR_V_SDH': 'IMPORT_FIORI', 
+                        'HEADER.ZZ1_PS_POSID_SDH': wbsClean, // --- FIX 2: Use trimmed WBS here ---
+                        'ITEM.SALESORDERITEM': currentItemID, 'ITEM.PRODUCT': item.product,
+                        'ITEM.REQUESTEDQUANTITY': item.qty, 'ITEM.REQUESTEDQUANTITYUNIT': '',
+                        'ITEM.SALESORDERITEMCATEGORY': '', 'ITEM.PLANT': mapping.Plant, 
+                        'ITEM.STORAGELOCATION': mapping['Storage Location']
+                    };
+                    flatRows.push(sysHeaders.map(k => rowMap[k] || ''));
+                });
+            });
+
+            // Create Workbook
+            const wb = XLSX.utils.book_new();
+            const wsData = [sysHeaders, dispHeaders, ...flatRows];
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            XLSX.utils.book_append_sheet(wb, ws, "Upload Data");
+            
+            // --- FIX 3: Remove underscore from filename to match target ---
+            // Old: `YES4HANA_Upload_${...}`
+            // New: `YES4HANA_Upload${...}`
+            const firstEO = validOrders[0].header.eo ? validOrders[0].header.eo.trim() : 'Draft';
+            const defaultName = `YES4HANA_Upload${firstEO}.xlsx`;
+
+            // FOLDER SELECTION LOGIC (File System Access API)
+            if (window.showSaveFilePicker) {
+                try {
+                    const handle = await window.showSaveFilePicker({
+                        suggestedName: defaultName,
+                        types: [{
+                            description: 'Excel File',
+                            accept: {'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']},
+                        }],
+                    });
+                    const writable = await handle.createWritable();
+                    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                    const blob = new Blob([wbout], {type: 'application/octet-stream'});
+                    await writable.write(blob);
+                    await writable.close();
+                    return; // Success
+                } catch (err) {
+                    // Fallback only if error is NOT user abort
+                    if (err.name !== 'AbortError') console.error('Save failed', err);
+                    else return; // User cancelled, do nothing
+                }
+            }
+            
+            // Fallback for browsers without File System Access API
+            XLSX.writeFile(wb, defaultName);
+        }
+
+        // --- HELPERS ---
+        function parseCSV(csvText) {
+            const lines = csvText.trim().split('\n');
+            if (lines.length < 1) return [];
+            const headers = lines[0].split(',').map(h => h.trim());
+            return lines.slice(1).map(line => {
+                const values = line.split(',');
+                return headers.reduce((obj, header, index) => {
+                    obj[header] = values[index] ? values[index].trim() : '';
+                    return obj;
+                }, {});
+            });
+        }
+        function getMappingData() {
+            const raw = document.getElementById('cfg-mapping').value;
+            const data = parseCSV(raw);
+            return data.reduce((acc, row) => { acc[row['Ship to Code']] = row; return acc; }, {});
+        }
+        function updateDropdownFromConfig() {
+            const map = getMappingData();
+            const select = document.getElementById('active-shipto');
+            const current = select.value;
+            select.innerHTML = '<option value="">Select...</option>';
+            Object.keys(map).sort().forEach(code => {
+                const opt = document.createElement('option'); opt.value = code; opt.innerText = code; select.appendChild(opt);
+            });
+            select.value = current;
+        }
+        function updateHeaderLookupPreview() {
+            const shipTo = document.getElementById('active-shipto').value;
+            const map = getMappingData();
+            const match = map[shipTo];
+            const el = document.getElementById('header-lookup-preview');
+            if(match) {
+                el.innerHTML = `<span class="px-2 py-1 rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">Plant: ${match.Plant}</span><span class="px-2 py-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">Loc: ${match['Storage Location']}</span><span class="px-2 py-1 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">Type: ${match.Type}</span>`;
+                el.classList.remove('opacity-0');
+            } else { el.classList.add('opacity-0'); }
+        }
+        function pad2(num) { return num.toString().padStart(2, '0'); }
+        
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.contains('dark');
+            const newTheme = isDark ? 'light' : 'dark';
+            applyTheme(newTheme);
+            localStorage.setItem('theme', newTheme);
+        }
+        
+        function applyTheme(t) {
+            const html = document.documentElement;
+            const sun = document.getElementById('icon-sun');
+            const moon = document.getElementById('icon-moon');
+            if(t === 'dark') { html.classList.add('dark'); sun.classList.remove('hidden'); moon.classList.add('hidden'); }
+            else { html.classList.remove('dark'); sun.classList.add('hidden'); moon.classList.remove('hidden'); }
+        }
+        
+        function switchTab(t) {
+            if(t === 'editor') {
+                document.getElementById('tab-editor').classList.remove('hidden');
+                document.getElementById('tab-settings').classList.add('hidden');
+                document.getElementById('btn-tab-editor').classList.add('bg-slate-200','dark:bg-slate-800','text-slate-900','dark:text-white');
+                document.getElementById('btn-tab-editor').classList.remove('text-slate-500');
+                document.getElementById('btn-tab-settings').classList.remove('bg-slate-200','dark:bg-slate-800','text-slate-900','dark:text-white');
+            } else {
+                document.getElementById('tab-editor').classList.add('hidden');
+                document.getElementById('tab-settings').classList.remove('hidden');
+                document.getElementById('btn-tab-settings').classList.add('bg-slate-200','dark:bg-slate-800','text-slate-900','dark:text-white');
+                document.getElementById('btn-tab-settings').classList.remove('text-slate-500');
+                document.getElementById('btn-tab-editor').classList.remove('bg-slate-200','dark:bg-slate-800','text-slate-900','dark:text-white');
+            }
+        }
+        function downloadSelfWithConfig() {
+            let html = document.documentElement.outerHTML;
+            const safeMap = document.getElementById('cfg-mapping').value.replace(/`/g, '\\`');
+            const safeHead = document.getElementById('cfg-headers').value.replace(/`/g, '\\`');
+            html = html.replace(/(const DEFAULT_MAPPING_CSV = `)([\s\S]*?)(`;)/, `$1${safeMap}$3`);
+            html = html.replace(/(const DEFAULT_HEADERS_CSV = `)([\s\S]*?)(`;)/, `$1${safeHead}$3`);
+            const blob = new Blob([html], {type: 'text/html'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = 'NMO_Tool_Configured.html';
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        }
+        function resetDefaults() {
+            if(confirm("Reset config?")) {
+                document.getElementById('cfg-mapping').value = DEFAULT_MAPPING_CSV;
+                document.getElementById('cfg-headers').value = DEFAULT_HEADERS_CSV;
+                updateDropdownFromConfig();
+            }
+        }
+    </script>
+</body>
+</html>
