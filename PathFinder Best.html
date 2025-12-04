@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FibreNet Pro - Enterprise V15 (Deep Diversity)</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    
+    <script>
+        tailwind.config = { 
+            darkMode: 'class', 
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Inter','sans-serif'], mono: ['Fira Code','monospace'] },
+                    colors: {
+                        brand: { 50: '#eff6ff', 100: '#dbeafe', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a' }
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.3s ease-out',
+                        'slide-in': 'slideIn 0.3s ease-out'
+                    },
+                    keyframes: {
+                        fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+                        slideIn: { '0%': { transform: 'translateY(-10px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } }
+                    }
+                } 
+            } 
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        
+        ::-webkit-scrollbar { width: 6px; height: 6px; } 
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        
+        .leaflet-popup-content-wrapper { padding: 0; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); }
+        .leaflet-popup-content { margin: 0; width: 280px !important; }
+        .leaflet-container a.leaflet-popup-close-button { top: 8px; right: 8px; color: #64748b; font-size: 16px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(255,255,255,0.8); z-index: 10; }
+        .leaflet-container a.leaflet-popup-close-button:hover { background: #f1f5f9; color: #ef4444; }
+
+        .sidebar-card { @apply bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 mb-3 overflow-hidden shadow-sm; }
+        .sidebar-header { @apply px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2 bg-slate-50/50 dark:bg-slate-900; }
+        .sidebar-body { @apply p-3; }
+        
+        .modern-input-group { @apply relative mb-3; }
+        .modern-input-label { @apply text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 block ml-1; }
+        .modern-input-wrapper { @apply flex items-center bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus-within:ring-2 focus-within:ring-brand-500/20 focus-within:border-brand-500 transition-all overflow-hidden shadow-sm; }
+        .modern-input { @apply w-full bg-transparent border-none text-xs font-medium text-slate-700 dark:text-slate-200 px-3 py-2.5 focus:ring-0 placeholder-slate-400 outline-none; }
+        .modern-input-icon { @apply text-slate-400 px-3 border-r border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 py-2.5 text-xs; }
+        .modern-input-action { @apply text-slate-400 hover:text-brand-600 px-3 py-2 cursor-pointer transition-colors border-l border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800; }
+
+        .btn-primary { @apply w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 px-4 rounded-lg text-xs shadow-sm hover:shadow transition-all flex items-center justify-center gap-2; }
+        .btn-danger { @apply bg-white dark:bg-slate-800 hover:bg-red-50 text-red-500 border border-slate-200 dark:border-slate-700 font-bold py-2 px-3 rounded-lg text-xs shadow-sm transition-colors; }
+
+        #map-container { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+        #map { position: absolute; top: 0; bottom: 0; left: 0; right: 0; z-index: 0; background: #e2e8f0; }
+        .dark #map { background: #0f172a; }
+        
+        /* Updated Option UI */
+        .option-card-btn { 
+            @apply w-full text-left p-3 rounded-xl border-2 border-transparent bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-200 dark:hover:border-slate-600 hover:shadow-md transition-all flex flex-col gap-1 mb-2 relative overflow-hidden;
+        }
+        .option-card-btn.active { 
+            @apply border-brand-500 bg-brand-50/50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-400 shadow-md ring-1 ring-brand-500 ring-offset-2 dark:ring-offset-slate-900; 
+        }
+        .option-card-btn.error {
+            @apply border-red-200 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300;
+        }
+        .option-badge {
+            @apply text-[9px] uppercase font-bold px-1.5 py-0.5 rounded ml-auto;
+        }
+
+        .path-btn { @apply bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm; }
+        .path-btn.active { @apply bg-brand-600 text-white shadow-md border-brand-700 ring-2 ring-offset-1 ring-brand-500; }
+
+        .endpoint-label { background: transparent; border: none; box-shadow: none; font-weight: bold; font-size: 11px; text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff; color: #1e40af; }
+        .dark .endpoint-label { text-shadow: -1px -1px 0 #0f172a, 1px -1px 0 #0f172a, -1px 1px 0 #0f172a, 1px 1px 0 #0f172a; color: #60a5fa; }
+
+        /* Resizers */
+        .resizer-h { width: 5px; cursor: col-resize; background: transparent; position: absolute; right: 0; top: 0; bottom: 0; z-index: 50; transition: background 0.2s; }
+        .resizer-h:hover, .resizer-h.active { background: #3b82f6; opacity: 0.5; }
+
+        .resizer-v { height: 5px; cursor: row-resize; background: #f1f5f9; dark:background: #1e293b; width: 100%; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; flex-shrink: 0; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
+        .dark .resizer-v { background: #0f172a; border-color: #1e293b; }
+        .resizer-v:hover, .resizer-v.active { background: #cbd5e1; dark:background: #334155; }
+        .resizer-v::after { content: ''; width: 30px; height: 3px; background: #cbd5e1; border-radius: 2px; }
+
+        .broken-leg-dash { stroke-dasharray: 8, 8; animation: dash 1s linear infinite; }
+        @keyframes dash { to { stroke-dashoffset: -16; } }
+
+        /* Tier Tags */
+        .tier-tag { @apply text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ml-2 inline-block; }
+        .tier-gold { @apply bg-amber-100 text-amber-700 border border-amber-200; }
+        .tier-silver { @apply bg-slate-100 text-slate-600 border border-slate-200; }
+        .tier-bronze { @apply bg-orange-50 text-orange-600 border border-orange-200; }
+        .tier-fail { @apply bg-red-50 text-red-600 border border-red-200; }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-200 h-screen flex flex-col overflow-hidden">
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 z-[2000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center hidden">
+        <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col items-center gap-4 w-72">
+            <div class="relative">
+                <div class="absolute inset-0 bg-brand-500 rounded-full blur opacity-20 animate-pulse"></div>
+                <i class="fa-solid fa-circle-notch fa-spin text-4xl text-brand-600 relative z-10"></i>
+            </div>
+            <div class="text-center">
+                <div class="text-sm font-bold text-slate-800 dark:text-white mb-1" id="loadingTitle">Processing Data...</div>
+                <div class="text-xs text-slate-500" id="loadingSubtitle">Optimizing diverse routes...</div>
+            </div>
+            <div class="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden hidden" id="progressContainer">
+                <div id="progressBar" class="bg-brand-600 h-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Debug Report Modal -->
+    <div id="debugModal" class="fixed inset-0 z-[2200] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center hidden">
+        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-[700px] max-h-[80vh] flex flex-col border border-slate-200 dark:border-slate-700">
+            <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-900 rounded-t-xl">
+                <div>
+                    <h2 class="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-wide"><i class="fa-solid fa-bug text-red-500 mr-2"></i>Topology Report</h2>
+                    <p class="text-[10px] text-slate-500">Analysis of Lead-in Cables and Splice Connectivity</p>
+                </div>
+                <button onclick="document.getElementById('debugModal').classList.add('hidden')" class="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-200 text-slate-500 transition"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-0 text-xs">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold sticky top-0">
+                        <tr>
+                            <th class="p-2 border-b border-slate-200 dark:border-slate-700">Cable/Site</th>
+                            <th class="p-2 border-b border-slate-200 dark:border-slate-700">Status</th>
+                            <th class="p-2 border-b border-slate-200 dark:border-slate-700">Type</th>
+                            <th class="p-2 border-b border-slate-200 dark:border-slate-700">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody id="debugReportBody" class="font-mono text-slate-700 dark:text-slate-300"></tbody>
+                </table>
+            </div>
+            <div class="p-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 rounded-b-xl flex justify-between items-center text-[10px] text-slate-500">
+                <span id="debugStats"></span>
+                <button onclick="copyDebugReport()" class="text-brand-600 font-bold hover:underline">Copy to Clipboard</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- State Selection Modal -->
+    <div id="stateModal" class="fixed inset-0 z-[2100] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center hidden">
+        <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-2xl w-96 border border-slate-200 dark:border-slate-700 transform transition-all scale-100">
+            <div class="text-center mb-6">
+                <div class="w-12 h-12 bg-brand-50 dark:bg-brand-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <i class="fa-solid fa-map-location-dot text-brand-600 text-xl"></i>
+                </div>
+                <h2 class="text-lg font-bold text-slate-800 dark:text-white">Select Regions</h2>
+                <p class="text-xs text-slate-500 mt-1">Choose the states to load data for</p>
+            </div>
+            
+            <div class="grid grid-cols-4 gap-2 mb-6">
+                <label class="group cursor-pointer relative"><input type="checkbox" class="hidden state-chk" value="NSW" checked><div class="p-2 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-slate-50 dark:bg-slate-800 hover:border-brand-300 transition-all group-has-[:checked]:bg-brand-50 group-has-[:checked]:border-brand-500 group-has-[:checked]:text-brand-700"><span class="text-xs font-bold block">NSW</span></div></label>
+                <label class="group cursor-pointer relative"><input type="checkbox" class="hidden state-chk" value="VIC" checked><div class="p-2 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-slate-50 dark:bg-slate-800 hover:border-brand-300 transition-all group-has-[:checked]:bg-brand-50 group-has-[:checked]:border-brand-500 group-has-[:checked]:text-brand-700"><span class="text-xs font-bold block">VIC</span></div></label>
+                <label class="group cursor-pointer relative"><input type="checkbox" class="hidden state-chk" value="QLD"><div class="p-2 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-slate-50 dark:bg-slate-800 hover:border-brand-300 transition-all group-has-[:checked]:bg-brand-50 group-has-[:checked]:border-brand-500 group-has-[:checked]:text-brand-700"><span class="text-xs font-bold block">QLD</span></div></label>
+                <label class="group cursor-pointer relative"><input type="checkbox" class="hidden state-chk" value="ACT"><div class="p-2 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-slate-50 dark:bg-slate-800 hover:border-brand-300 transition-all group-has-[:checked]:bg-brand-50 group-has-[:checked]:border-brand-500 group-has-[:checked]:text-brand-700"><span class="text-xs font-bold block">ACT</span></div></label>
+                <label class="group cursor-pointer relative"><input type="checkbox" class="hidden state-chk" value="SA"><div class="p-2 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-slate-50 dark:bg-slate-800 hover:border-brand-300 transition-all group-has-[:checked]:bg-brand-50 group-has-[:checked]:border-brand-500 group-has-[:checked]:text-brand-700"><span class="text-xs font-bold block">SA</span></div></label>
+                <label class="group cursor-pointer relative"><input type="checkbox" class="hidden state-chk" value="WA"><div class="p-2 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-slate-50 dark:bg-slate-800 hover:border-brand-300 transition-all group-has-[:checked]:bg-brand-50 group-has-[:checked]:border-brand-500 group-has-[:checked]:text-brand-700"><span class="text-xs font-bold block">WA</span></div></label>
+                <label class="group cursor-pointer relative"><input type="checkbox" class="hidden state-chk" value="TAS"><div class="p-2 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-slate-50 dark:bg-slate-800 hover:border-brand-300 transition-all group-has-[:checked]:bg-brand-50 group-has-[:checked]:border-brand-500 group-has-[:checked]:text-brand-700"><span class="text-xs font-bold block">TAS</span></div></label>
+                <label class="group cursor-pointer relative"><input type="checkbox" class="hidden state-chk" value="NT"><div class="p-2 border border-slate-200 dark:border-slate-700 rounded-lg text-center bg-slate-50 dark:bg-slate-800 hover:border-brand-300 transition-all group-has-[:checked]:bg-brand-50 group-has-[:checked]:border-brand-500 group-has-[:checked]:text-brand-700"><span class="text-xs font-bold block">NT</span></div></label>
+            </div>
+            <button onclick="confirmStateSelection()" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-lg text-sm shadow-lg shadow-brand-500/30 transition-all transform hover:-translate-y-0.5">Initialize Session</button>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="h-14 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 shrink-0 z-20 shadow-sm relative">
+        <div class="flex items-center gap-3">
+            <div class="bg-brand-600 p-1.5 rounded-lg shadow-lg shadow-brand-500/20">
+                <i class="fa-solid fa-network-wired text-white text-sm"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-sm tracking-tight text-slate-800 dark:text-white">FibreNet <span class="text-brand-600">Pro</span></h1>
+                <div class="text-[9px] font-medium text-slate-400 uppercase tracking-widest leading-none">Global Diversity Engine</div>
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <input type="file" id="cableInput" accept=".json,.geojson" class="hidden" onchange="handleUpload(event, 'cable')">
+            <input type="file" id="spliceInput" accept=".json,.geojson" class="hidden" onchange="handleUpload(event, 'splice')">
+            <input type="file" id="siteInput" accept=".json,.geojson" class="hidden" onchange="handleUpload(event, 'site')">
+            
+            <div class="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg gap-1 border border-slate-200 dark:border-slate-700">
+                <label for="cableInput" class="cursor-pointer px-3 py-1.5 rounded-md text-[10px] font-bold text-slate-600 hover:bg-white hover:text-brand-600 hover:shadow-sm transition flex items-center gap-2"><i class="fa-solid fa-upload"></i> Cables</label>
+                <label for="spliceInput" class="cursor-pointer px-3 py-1.5 rounded-md text-[10px] font-bold text-slate-600 hover:bg-white hover:text-purple-600 hover:shadow-sm transition flex items-center gap-2"><i class="fa-solid fa-upload"></i> Splices</label>
+                <label for="siteInput" class="cursor-pointer px-3 py-1.5 rounded-md text-[10px] font-bold text-slate-600 hover:bg-white hover:text-teal-600 hover:shadow-sm transition flex items-center gap-2"><i class="fa-solid fa-upload"></i> Sites</label>
+            </div>
+            
+            <div class="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-1"></div>
+            <button onclick="showDebugReport()" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-600 transition" title="Connection Report"><i class="fa-solid fa-stethoscope text-xs"></i></button>
+            <button onclick="showStateModal()" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 transition" title="Filter"><i class="fa-solid fa-filter text-xs"></i></button>
+            <button onclick="zoomToFit()" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 transition" title="Fit"><i class="fa-solid fa-expand text-xs"></i></button>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden relative">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="bg-slate-50 dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 flex flex-col z-10 relative w-80 shrink-0 shadow-xl">
+            <div id="resizer" class="resizer-h"></div>
+            
+            <!-- Tabs -->
+            <div class="flex border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 pt-4 shrink-0 gap-4">
+                <button onclick="switchTab('browser')" class="tab-btn active flex-1 pb-3 text-[11px] font-bold text-center border-b-2 border-brand-600 text-brand-700 dark:text-brand-400 transition">Asset Browser</button>
+                <button onclick="switchTab('pathfinder')" class="tab-btn flex-1 pb-3 text-[11px] font-bold text-center border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition">Pathfinder</button>
+            </div>
+
+            <!-- Tab: Browser -->
+            <div id="tab-browser" class="flex-col h-full flex bg-slate-50 dark:bg-slate-950">
+                <div class="p-3 border-b border-slate-200 dark:border-slate-800 shrink-0 bg-white dark:bg-slate-900">
+                    <div class="relative group">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs group-focus-within:text-brand-500 transition-colors"></i>
+                        <input type="text" id="searchInput" placeholder="Search by Name, ID or Site Code..." class="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-lg pl-9 pr-3 py-2 text-xs focus:ring-2 focus:ring-brand-500/20 transition-all outline-none" oninput="renderSidebar()">
+                    </div>
+                </div>
+                <!-- Stats Strip -->
+                <div class="grid grid-cols-4 text-[10px] text-center bg-slate-100 dark:bg-slate-900 py-3 border-b border-slate-200 dark:border-slate-800 shrink-0">
+                    <div><b class="block text-sm text-slate-700 dark:text-slate-200" id="stat-cable">0</b><span class="text-slate-500">Cables</span></div>
+                    <div><b class="block text-sm text-purple-600" id="stat-splice">0</b><span class="text-slate-500">Splices</span></div>
+                    <div><b class="block text-sm text-teal-600" id="stat-site">0</b><span class="text-slate-500">Sites</span></div>
+                    <div><b class="block text-sm text-brand-600" id="stat-km">0</b><span class="text-slate-500">Km</span></div>
+                </div>
+                <div id="assetList" class="flex-1 overflow-y-auto p-2 space-y-1 bg-slate-50 dark:bg-slate-950">
+                    <div class="flex flex-col items-center justify-center h-48 text-slate-400 gap-2">
+                        <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center"><i class="fa-solid fa-layer-group text-slate-300"></i></div>
+                        <span class="text-xs font-medium">No Assets Loaded</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Pathfinder -->
+            <div id="tab-pathfinder" class="flex flex-col h-full hidden bg-slate-50 dark:bg-slate-950">
+                
+                <!-- Top Section: Inputs (Resizable) -->
+                <div id="pathfinderInputs" class="shrink-0 p-4 overflow-y-auto border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 shadow-sm z-10" style="height: 60%; min-height: 250px; max-height: 85%;">
+                    
+                    <!-- Config Card -->
+                    <div class="sidebar-card">
+                        <div class="sidebar-header">
+                            <i class="fa-solid fa-route text-brand-600 text-xs"></i>
+                            <h3 class="text-[11px] font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">Configuration</h3>
+                        </div>
+                        <div class="sidebar-body">
+                            <!-- Routing Mode -->
+                            <div class="modern-input-group">
+                                <label class="modern-input-label">Routing Logic</label>
+                                <div class="modern-input-wrapper">
+                                    <div class="modern-input-icon"><i class="fa-solid fa-shuffle"></i></div>
+                                    <select id="modeSelect" class="modern-input cursor-pointer" onchange="handleModeChange()">
+                                        <option value="single">Single Path (Top 5 Unique)</option>
+                                        <option value="diverse">Diverse Pair (Top 5)</option>
+                                        <option value="ring">Ring / Multi-Hop (Top 5)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Dynamic Inputs -->
+                            <div id="pathInputs" class="w-full"></div>
+                            
+                            <!-- Actions -->
+                            <div class="flex gap-2 pt-2 w-full mt-2">
+                                <button onclick="findPath()" class="flex-1 btn-primary"><i class="fa-solid fa-bolt"></i> Trace Route</button>
+                                <button onclick="resetPath()" class="btn-danger w-10 flex items-center justify-center px-0"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Granular Hard Constraints Card -->
+                    <div class="sidebar-card">
+                        <div class="sidebar-header justify-between">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-ban text-red-500 text-xs"></i>
+                                <h3 class="text-[11px] font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">Hard Constraints</h3>
+                            </div>
+                            <!-- Leg/Path Selector Placeholder -->
+                            <div id="constraintSelector" class="flex gap-1"></div>
+                        </div>
+                        <div class="sidebar-body space-y-2">
+                             <!-- Dynamic Constraints UI Container -->
+                             <div id="constraintsUI"></div>
+                        </div>
+                    </div>
+
+                    <!-- Soft Constraints Card -->
+                    <div class="sidebar-card mb-0">
+                        <div class="sidebar-header justify-between">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-sliders text-brand-600 text-xs"></i>
+                                <h3 class="text-[11px] font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">Preferences</h3>
+                            </div>
+                            <label class="text-[9px] font-bold text-brand-600 cursor-pointer hover:underline"><input type="checkbox" onchange="toggleAllPriorities(this)" checked class="mr-1 accent-brand-600">Toggle All</label>
+                        </div>
+                        <div class="sidebar-body pt-2">
+                            <!-- Diversity Constraints -->
+                            <div id="divConstraintsCard" class="hidden w-full mb-3 bg-blue-50/50 dark:bg-blue-900/10 p-2 rounded-lg border border-blue-100 dark:border-blue-800">
+                                <div class="flex justify-between items-center mb-2">
+                                    <label class="text-[10px] font-bold text-brand-700 uppercase">Diversity Rules (Strict)</label>
+                                </div>
+                                <div id="diversityList" class="space-y-1"></div>
+                            </div>
+
+                            <div id="priorityList" class="space-y-1"></div>
+                            
+                            <div class="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                                <div class="modern-input-group mb-0">
+                                    <label class="modern-input-label">Distance Limit (km)</label>
+                                    <div class="modern-input-wrapper">
+                                        <input type="number" id="maxDist" class="modern-input px-2 text-center" placeholder="∞">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Vertical Resizer -->
+                <div id="vResizer" class="resizer-v" title="Drag to resize"></div>
+
+                <!-- Bottom Section: Results -->
+                <div id="resultsArea" class="hidden flex-1 flex flex-col min-h-0 bg-white dark:bg-slate-900 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                     <div class="px-3 py-2 bg-slate-50 dark:bg-slate-800 text-[10px] font-bold text-slate-500 uppercase border-b border-slate-200 dark:border-slate-700 flex justify-between shrink-0">
+                         <span id="resultsTitle" class="text-brand-700">Route Details</span>
+                         <span id="resultsCount"></span>
+                     </div>
+                     <div id="pathResultsList" class="flex-1 overflow-y-auto p-0 space-y-0 min-h-0"></div>
+                </div>
+            </div>
+        </aside>
+
+        <main id="map-container">
+            <div id="map"></div>
+            
+            <!-- Updated Floating Options UI -->
+            <div id="solutionSelector" class="absolute top-20 right-6 z-[400] hidden flex-col w-72 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden transform transition-all animate-fade-in origin-top-right">
+                <div class="p-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900 flex justify-between items-center shrink-0">
+                     <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-list-check text-brand-600"></i>
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Found Routes</span>
+                     </div>
+                     <span class="bg-brand-100 text-brand-700 dark:bg-brand-900 dark:text-brand-300 px-2 py-0.5 rounded-full text-[10px] font-bold" id="solutionCount">0</span>
+                </div>
+                <div class="flex flex-col p-3 gap-0 max-h-[60vh] overflow-y-auto" id="solutionBtns"></div>
+            </div>
+            
+            <div class="absolute top-4 left-[210px] z-[400] hidden flex gap-1" id="pathSelectorBtns"></div>
+
+            <div id="pathSummaryCard" class="absolute bottom-8 left-1/2 -translate-x-1/2 z-[400] hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur py-2 px-5 rounded-full shadow-2xl border border-slate-200 dark:border-slate-700 flex gap-5 items-center transform transition-all hover:-translate-y-1">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900 flex items-center justify-center text-brand-600 dark:text-brand-400"><i class="fa-solid fa-flag-checkered text-sm"></i></div>
+                    <div>
+                        <div class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Total Distance</div>
+                        <div class="text-base font-bold text-slate-800 dark:text-white leading-none"><span id="summaryDistance">0</span> <span class="text-[10px] text-slate-500 font-normal">km</span></div>
+                    </div>
+                </div>
+                <div class="h-8 w-px bg-slate-200 dark:bg-slate-700"></div>
+                <button onclick="exportPathCSV()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-full px-3 py-1.5 text-[10px] font-bold flex items-center gap-2 transition"><i class="fa-solid fa-download"></i> CSV Report</button>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- DEFAULTS & CONFIG ---
+        const DEFAULT_PRIORITIES = [
+            { id: 'rs-no', label: 'Avoid RS-NO', type: 'node', code: 'RS-NO' },
+            { id: 'rs-be', label: 'Avoid RS-BE', type: 'node', code: 'RS-BE' },
+            { id: 'avoidCiti', label: 'Avoid Citipower', type: 'node', key: 'citi' },
+            { id: 'avoidIOF', label: 'Avoid IOF Cables', type: 'edge', key: 'iof' },
+            { id: 'rs-nh', label: 'Avoid RS-NH', type: 'node', code: 'RS-NH' },
+            { id: 'rs-oi', label: 'Avoid RS-OI', type: 'node', code: 'RS-OI' },
+            { id: 'avoidNew', label: 'Avoid Planned (PA)', type: 'edge', key: 'new' },
+            { id: 'rs-ra', label: 'Avoid RS-RA', type: 'node', code: 'RS-RA' },
+            { id: 'rs-cc', label: 'Avoid RS-CC', type: 'node', code: 'RS-CC' },
+            { id: 'avoidAerial', label: 'Avoid Aerial', type: 'edge', key: 'aerial' },
+            { id: 'rs-rb', label: 'Avoid RS-RB', type: 'node', code: 'RS-RB' }
+        ];
+
+        const DEFAULT_DIVERSITY = [
+            { id: 'noOverlap', label: 'No Overlapping Fibres', checked: true },
+            { id: 'noCommonNodes', label: 'No Common Splices (Cross-Over)', checked: true },
+            { id: 'distinctLead', label: 'Distinct Lead-ins', checked: true }
+        ];
+
+        // --- GLOBALS ---
+        let map, tileLayer, cableLayer, spliceLayer, siteLayer, pathLayer, endpointLayer;
+        let allCables=[], allSplices=[], allSites=[];
+        let spliceLookup={}, nameToIdMap={}, cableLookup={}, cableSegmentsByName={}, cableSegmentsById={};
+        let layerLookup = {}; 
+        let networkGraph=null, ufParent={};
+        let siteConnectivity = {}; 
+        let debugReport = [];
+        
+        let solutionSets = []; 
+        let currentSolutionIndex = 0;
+        let foundPaths = []; 
+        let currentPathIndex = 0; 
+        
+        let constraintState = {}; 
+        let currentScopeId = '0';
+
+        const stateBounds = { "NSW":[140.9,-37.6,153.7,-28.1], "VIC":[140.9,-39.2,150.1,-33.9], "QLD":[137.9,-29.2,153.6,-10.0], "ACT":[148.7,-35.9,149.4,-35.1], "SA":[129.0,-38.1,141.0,-25.9], "WA":[112.9,-35.2,129.0,-13.7], "TAS":[143.8,-43.7,148.5,-39.5], "NT":[129.0,-26.0,138.0,-10.9] };
+        let selectedStates = new Set(['NSW','VIC','QLD']);
+        const rawData = { cable:[], splice:[], site:[] };
+        let searchTimeout;
+
+        // --- UTILS ---
+        function addLegend() {
+            if(!map) return;
+            const div = L.DomUtil.create('div', 'legend bg-white/95 dark:bg-slate-900/95 p-3 rounded-lg shadow-xl text-[10px] border border-slate-200 dark:border-slate-800 backdrop-blur');
+            div.innerHTML = `<b class="block mb-2 text-slate-500 uppercase tracking-widest font-bold text-[9px]">Map Legend</b>
+            <div class="grid grid-cols-2 gap-x-4 gap-y-2">
+                <div class="flex items-center gap-2"><span class="bg-teal-500 w-2 h-2 rounded-full ring-1 ring-teal-200"></span> Site</div>
+                <div class="flex items-center gap-2"><span class="bg-purple-600 w-2 h-2 rounded-full ring-1 ring-purple-200"></span> Splice</div>
+                <div class="flex items-center gap-2"><span class="bg-brand-600 w-3 h-1 rounded"></span> Active</div>
+                <div class="flex items-center gap-2"><span class="bg-emerald-500 w-3 h-1 rounded"></span> Planned</div>
+            </div>`;
+            L.DomUtil.get(map.getContainer()).appendChild(div);
+            div.style.position = 'absolute'; div.style.bottom = '20px'; div.style.right = '10px'; div.style.zIndex = 400;
+        }
+        function zoomToFit() {
+            if(!map) return;
+            const b = L.latLngBounds([]);
+            if(cableLayer && cableLayer.getBounds().isValid()) b.extend(cableLayer.getBounds());
+            if(spliceLayer && spliceLayer.getBounds().isValid()) b.extend(spliceLayer.getBounds());
+            if(b.isValid()) map.fitBounds(b, {padding:[50,50]});
+        }
+        function updateMarkerSizes() {
+            if(!map) return;
+            const z = map.getZoom();
+            const r = z>16?6 : z>14?4 : z>12?2 : 0.5;
+            if(spliceLayer) spliceLayer.eachLayer(l => l.setRadius(r));
+            if(siteLayer) siteLayer.eachLayer(l => l.setRadius(r+2));
+        }
+
+        // --- INIT ---
+        window.onload = function() { 
+            handleModeChange();
+            renderPriorityList(); 
+            renderDiversityList();
+            initResizers();
+            document.getElementById('stateModal').classList.remove('hidden'); 
+        };
+        
+        function initResizers() {
+            const rzH = document.getElementById('resizer'); const sb = document.getElementById('sidebar'); let isResizingH = false;
+            rzH.addEventListener('mousedown', (e) => { isResizingH = true; rzH.classList.add('active'); document.body.style.cursor = 'col-resize'; e.preventDefault(); });
+            document.addEventListener('mousemove', (e) => { if(isResizingH) { sb.style.width = Math.max(280, Math.min(e.clientX, 600)) + 'px'; } });
+            
+            const rzV = document.getElementById('vResizer'); const topPanel = document.getElementById('pathfinderInputs'); let isResizingV = false;
+            rzV.addEventListener('mousedown', (e) => { isResizingV = true; rzV.classList.add('active'); document.body.style.cursor = 'row-resize'; e.preventDefault(); });
+            document.addEventListener('mousemove', (e) => { if(isResizingV) { const sbRect = sb.getBoundingClientRect(); const h = e.clientY - sbRect.top - 45; topPanel.style.height = Math.max(200, Math.min(h, sbRect.height - 100)) + 'px'; topPanel.style.maxHeight = 'none'; } });
+
+            document.addEventListener('mouseup', () => { isResizingH = false; isResizingV = false; rzH.classList.remove('active'); rzV.classList.remove('active'); document.body.style.cursor = ''; if(map) map.invalidateSize(); });
+        }
+
+        function showStateModal() { document.getElementById('stateModal').classList.remove('hidden'); }
+        function confirmStateSelection() {
+            selectedStates.clear();
+            document.querySelectorAll('.state-chk:checked').forEach(cb => selectedStates.add(cb.value));
+            document.getElementById('stateModal').classList.add('hidden');
+            setTimeout(() => { if(!map) initMap(); if(rawData.cable.length > 0) reprocessAll(); }, 50);
+        }
+
+        function initMap() {
+            if(map) return;
+            map = L.map('map', { preferCanvas:true, zoomControl:false }).setView([-25, 134], 4);
+            L.control.zoom({position:'bottomright'}).addTo(map);
+            tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {attribution:'&copy; CARTO'}).addTo(map);
+            setTimeout(() => { map.invalidateSize(); }, 200);
+            cableLayer = L.geoJSON(null, { style: getCableStyle, onEachFeature: onEachCable, smoothFactor:1.5, interactive: true }).addTo(map);
+            spliceLayer = L.geoJSON(null, { pointToLayer: createSpliceMarker, onEachFeature: onEachSplice, interactive: true }).addTo(map);
+            siteLayer = L.geoJSON(null, { pointToLayer: createSiteMarker, onEachFeature: onEachSite, interactive: true }).addTo(map);
+            pathLayer = L.geoJSON(null, { style: getPathStyle, onEachFeature: onEachPathSegment, interactive: true }).addTo(map);
+            endpointLayer = L.layerGroup().addTo(map); 
+            map.on('zoomend', updateMarkerSizes);
+            map.on('click', handleMapClick);
+            addLegend();
+        }
+
+        function handleMapClick(e) {
+            const clickPoint = map.latLngToContainerPoint(e.latlng);
+            const hits = [];
+
+            [allSites, allSplices].forEach((list, i) => {
+                list.forEach(f => {
+                    const latLng = L.latLng(f.geometry.coordinates[1], f.geometry.coordinates[0]);
+                    const point = map.latLngToContainerPoint(latLng);
+                    if(clickPoint.distanceTo(point) <= 12) hits.push({ type: i===0?'Site':'Splice', p: f.properties, latlng: f.geometry.coordinates });
+                });
+            });
+
+            allCables.forEach(f => {
+                const coords = f.geometry.coordinates; 
+                if(!coords || coords.length < 2) return;
+                for(let i=0; i<coords.length-1; i++) {
+                    const p1 = map.latLngToContainerPoint([coords[i][1], coords[i][0]]);
+                    const p2 = map.latLngToContainerPoint([coords[i+1][1], coords[i+1][0]]);
+                    if(distToSegment(clickPoint, p1, p2) <= 12) {
+                        hits.push({ type: 'Cable', p: f.properties });
+                        break; 
+                    }
+                }
+            });
+
+            if(hits.length > 0) {
+                if(hits.length === 1) {
+                    const f = hits[0];
+                    let content = renderPopupCard(f);
+                    L.popup().setLatLng(e.latlng).setContent(content).openOn(map);
+                } else {
+                    let content = `<div class="bg-slate-50 border-b border-slate-200 p-3 font-bold text-xs text-slate-700 uppercase tracking-wide flex justify-between"><span>Assets Found</span><span class="bg-slate-200 text-slate-600 px-1.5 rounded text-[10px]">${hits.length}</span></div><div class="max-h-64 overflow-y-auto">`;
+                    hits.forEach(f => { content += renderCompactListItem(f); });
+                    content += `</div>`;
+                    L.popup().setLatLng(e.latlng).setContent(content).openOn(map);
+                }
+            }
+        }
+        
+        function renderPopupCard(f) {
+            const p = f.p; const type = f.type;
+            const title = p.NAME || p.SITE_CODE || 'Unknown Asset';
+            const sub = type === 'Site' ? p.CONSTRUCTION_STATUS : (type === 'Cable' ? p.CABLE_STATUS : p.ADDRESS || 'No Address');
+            const id = p.ID;
+            
+            let iconClass = 'fa-circle-question'; let badgeClass = 'bg-slate-100 text-slate-600';
+            if(type==='Site') { iconClass='fa-tower-cell'; badgeClass='bg-teal-50 text-teal-700'; }
+            if(type==='Splice') { iconClass='fa-circle-dot'; badgeClass='bg-purple-50 text-purple-700'; }
+            if(type==='Cable') { iconClass='fa-bolt'; badgeClass='bg-brand-50 text-brand-700'; }
+
+            let metaHtml = '';
+            if(type === 'Cable') {
+                metaHtml = `<div class="grid grid-cols-2 gap-2 text-[10px] mt-3 bg-slate-50 p-2 rounded border border-slate-100"><div><span class="text-slate-400 block">Fibres</span><span class="font-mono font-bold text-slate-700">${p.FIBRES||'-'}</span></div><div><span class="text-slate-400 block">Length</span><span class="font-mono font-bold text-slate-700">${p.SPAN_LENGTH}m</span></div><div><span class="text-slate-400 block">Type</span><span class="font-mono font-bold text-slate-700">${p.CONSTRUCT_TYPE||'-'}</span></div><div><span class="text-slate-400 block">IOF</span><span class="font-mono font-bold text-slate-700">${p.IOF||'N'}</span></div></div>`;
+            } else if (type === 'Site' && p.LINKED_IDS) {
+                 const ids = p.LINKED_IDS.join(', ');
+                 metaHtml = `<div class="mt-3 bg-slate-50 p-2 rounded border border-slate-100 text-[10px]"><span class="text-slate-400 block">Linked Node IDs (${p.LINKED_IDS.length})</span><span class="font-mono font-bold text-slate-700 select-all break-words">${ids}</span></div>`;
+            } else {
+                 metaHtml = `<div class="mt-3 bg-slate-50 p-2 rounded border border-slate-100 text-[10px]"><span class="text-slate-400 block">System ID</span><span class="font-mono font-bold text-slate-700 select-all">${id}</span></div>`;
+            }
+
+            const mode = document.getElementById('modeSelect').value;
+            let actionsHtml = '';
+            const clickId = type === 'Site' && p.SITE_CODE ? p.SITE_CODE : id;
+            
+            if(type !== 'Cable') {
+                if(mode === 'ring') {
+                    const stops = document.querySelectorAll('.ring-stop');
+                    let btns = '';
+                    stops.forEach((inp, idx) => {
+                         const char = String.fromCharCode(65 + idx);
+                         btns += `<button onclick="setVal('stop${idx}','${clickId}')" class="flex items-center justify-center gap-1.5 py-1.5 rounded bg-brand-50 hover:bg-brand-100 text-brand-700 text-[10px] font-bold transition w-full mb-1">Set Stop ${char}</button>`;
+                    });
+                    actionsHtml = `<div class="mt-3 pt-3 border-t border-slate-100 grid grid-cols-2 gap-1">${btns}</div>`;
+                } else {
+                    actionsHtml = `<div class="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-100"><button onclick="setVal('pathStart','${clickId}')" class="flex items-center justify-center gap-1.5 py-1.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[10px] font-bold transition"><i class="fa-solid fa-play"></i> Set Start</button><button onclick="setVal('pathEnd','${clickId}')" class="flex items-center justify-center gap-1.5 py-1.5 rounded bg-red-50 hover:bg-red-100 text-red-700 text-[10px] font-bold transition"><i class="fa-solid fa-flag-checkered"></i> Set End</button></div>`;
+                }
+            }
+
+            return `<div class="font-sans p-4 min-w-[240px]"><div class="flex items-start gap-3"><div class="w-8 h-8 rounded-lg ${badgeClass} flex items-center justify-center shrink-0"><i class="fa-solid ${iconClass}"></i></div><div class="min-w-0 flex-1"><div class="font-bold text-sm text-slate-800 leading-tight truncate" title="${title}">${title}</div><div class="text-[10px] font-medium text-slate-500 uppercase tracking-wide mt-0.5">${type} • ${sub}</div></div></div>${metaHtml}${actionsHtml}</div>`;
+        }
+        
+        function renderCompactListItem(f) {
+            const p = f.p; const type = f.type;
+            const title = p.NAME || p.SITE_CODE || p.ID;
+            let icon = 'fa-circle-question'; let color = 'text-slate-400';
+            if(type==='Site') { icon='fa-tower-cell'; color='text-teal-600'; }
+            else if(type==='Splice') { icon='fa-circle-dot'; color='text-purple-600'; }
+            else { icon='fa-bolt'; color='text-brand-600'; }
+            const clickId = type === 'Site' ? p.SITE_CODE : p.ID;
+            return `<div class="p-3 border-b border-slate-100 last:border-0 hover:bg-slate-50 cursor-pointer flex items-center gap-3 transition group" onclick="openSpecificPopup('${clickId}', '${type}')"><i class="fa-solid ${icon} ${color} w-4 text-center group-hover:scale-110 transition-transform"></i><div class="min-w-0 flex-1"><div class="font-bold text-[11px] text-slate-700 truncate">${title}</div><div class="text-[9px] text-slate-400 font-mono truncate">${p.ID}</div></div><i class="fa-solid fa-chevron-right text-[10px] text-slate-300"></i></div>`;
+        }
+
+        function distToSegment(p, v, w) {
+            const l2 = dist2(v, w);
+            if (l2 === 0) return Math.sqrt(dist2(p, v));
+            let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+            t = Math.max(0, Math.min(1, t));
+            return Math.sqrt(dist2(p, { x: v.x + t * (w.x - v.x), y: v.y + t * (w.y - v.y) }));
+        }
+        function dist2(v, w) { return (v.x - w.x)**2 + (v.y - w.y)**2; }
+
+        window.openSpecificPopup = function(id, type) {
+            let f = null;
+            if (type === 'Cable') f = cableLookup[id];
+            else if (type === 'Splice') f = spliceLookup[id];
+            else if (type === 'Site') { f = allSites.find(s => s.properties.SITE_CODE === id); }
+            if(!f) return;
+            const content = renderPopupCard({type:type, p:f.properties});
+            let latlng;
+            if(type==='Cable') latlng = map.getCenter(); 
+            else latlng = [f.geometry.coordinates[1], f.geometry.coordinates[0]];
+            L.popup().setLatLng(latlng).setContent(content).openOn(map);
+        };
+
+        // --- FILE HANDLING ---
+        function handleUpload(e, type) {
+            const file = e.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    const json = JSON.parse(ev.target.result);
+                    rawData[type] = json.features || (json.type==='Feature'?[json]:[]);
+                    reprocessAll();
+                } catch(err) { alert("Invalid GeoJSON"); }
+            };
+            reader.readAsText(file);
+        }
+
+        function reprocessAll() {
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            setTimeout(() => {
+                if(cableLayer) cableLayer.clearLayers(); if(spliceLayer) spliceLayer.clearLayers(); if(siteLayer) siteLayer.clearLayers();
+                allCables=[]; allSplices=[]; allSites=[]; 
+                spliceLookup={}; nameToIdMap={}; cableLookup={}; cableSegmentsByName={}; cableSegmentsById={}; 
+                networkGraph=null; layerLookup = {}; siteConnectivity = {}; debugReport = [];
+
+                allSplices = filterByState(rawData.splice, false);
+                if(spliceLayer) spliceLayer.addData({type:"FeatureCollection", features:allSplices});
+                indexNodes(allSplices);
+
+                allCables = filterByState(rawData.cable, true);
+                if(cableLayer) cableLayer.addData({type:"FeatureCollection", features:allCables});
+                allCables.forEach(f => {
+                    const p = f.properties;
+                    if(p.ID) { cableLookup[p.ID]=f; if(!cableSegmentsById[p.ID]) cableSegmentsById[p.ID]=[]; cableSegmentsById[p.ID].push(f); }
+                    if(p.NAME) { if(!cableSegmentsByName[p.NAME]) cableSegmentsByName[p.NAME]=[]; cableSegmentsByName[p.NAME].push(f); }
+                });
+                
+                deriveSiteConnectivity(allCables);
+                const sites = filterByState(rawData.site, false);
+                if(allCables.length > 0) {
+                    allSites = mapSitesToConnectivity(sites);
+                    if(siteLayer) siteLayer.addData({type:"FeatureCollection", features:allSites});
+                    indexNodes(allSites);
+                }
+                updateStats(); renderSidebar();
+                if(allCables.length > 0) { buildGraph(); zoomToFit(); }
+                document.getElementById('loadingOverlay').classList.add('hidden');
+            }, 100);
+        }
+
+        function filterByState(list, isLine) {
+            if(!list) return [];
+            return list.filter(f => {
+                if(!f.geometry?.coordinates) return false;
+                let lat, lng;
+                if(isLine) { lng=f.geometry.coordinates[0][0]; lat=f.geometry.coordinates[0][1]; }
+                else { lng=f.geometry.coordinates[0]; lat=f.geometry.coordinates[1]; }
+                for(let s of selectedStates) { const b = stateBounds[s]; if(lng>=b[0] && lat>=b[1] && lng<=b[2] && lat<=b[3]) return true; }
+                return false;
+            });
+        }
+        
+        function deriveSiteConnectivity(cables) {
+            siteConnectivity = {}; 
+            cables.forEach(c => {
+                const p = c.properties;
+                const name = p.NAME || '';
+                if(name.length > 4 && (name.includes('BLS') || name.includes('XLS') || name.includes('ZLS'))) {
+                    const siteCode = name.substring(0, 4).toUpperCase();
+                    const u = p.LINK1; const v = p.LINK2;
+                    const uExists = spliceLookup[u]; const vExists = spliceLookup[v];
+                    let targetId = null;
+                    if(uExists && !vExists) targetId = v;
+                    else if (!uExists && vExists) targetId = u;
+                    if(targetId) { if(!siteConnectivity[siteCode]) siteConnectivity[siteCode] = new Set(); siteConnectivity[siteCode].add(targetId); }
+                }
+            });
+        }
+
+        function mapSitesToConnectivity(sites) {
+            sites.forEach(s => {
+                const code = (s.properties.SITE_CODE || '').toUpperCase();
+                const ids = siteConnectivity[code];
+                if(ids && ids.size > 0) { s.properties.LINKED_IDS = Array.from(ids); s.properties.ID = s.properties.LINKED_IDS[0]; }
+                else { s.properties.LINKED_IDS = []; s.properties.ID = "UNLINKED"; debugReport.push({ code: code, result: 'FAILED', type: 'Topology Check', details: 'No Lead-in cables found linked to this Site Code' }); }
+            });
+            return sites;
+        }
+
+        function resolveNodeSet(val) {
+             const idOrCode = resolveId(val); 
+             if(!idOrCode) return [];
+             if(siteConnectivity[idOrCode]) return Array.from(siteConnectivity[idOrCode]);
+             if(spliceLookup[idOrCode]) return [idOrCode];
+             const site = allSites.find(s => s.properties.SITE_CODE === idOrCode);
+             if(site && site.properties.LINKED_IDS && site.properties.LINKED_IDS.length > 0) return site.properties.LINKED_IDS;
+             return [idOrCode];
+        }
+
+        function showDebugReport() {
+            const tbody = document.getElementById('debugReportBody');
+            const stats = document.getElementById('debugStats');
+            tbody.innerHTML = '';
+            if(debugReport.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-400">No topology issues found.</td></tr>';
+                stats.innerText = 'All sites linked perfectly.';
+            } else {
+                const reportSlice = debugReport.slice(0, 500); 
+                reportSlice.forEach(row => {
+                    const color = row.result === 'FAILED' ? 'text-red-600 bg-red-50' : (row.result === 'WARNING' ? 'text-amber-600 bg-amber-50' : 'text-emerald-600');
+                    tbody.innerHTML += `<tr class="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800"><td class="p-2 font-bold">${row.code}</td><td class="p-2"><span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${color}">${row.result}</span></td><td class="p-2 text-[10px]">${row.type}</td><td class="p-2 text-[10px] text-slate-500 font-mono">${row.details}</td></tr>`;
+                });
+                stats.innerHTML = `Found <b class="text-red-500">${debugReport.filter(r=>r.result!=='OK').length}</b> issues.`;
+            }
+            document.getElementById('debugModal').classList.remove('hidden');
+        }
+
+        function copyDebugReport() { const text = "Site Code\tResult\tType\tDetails\n" + debugReport.map(r => `${r.code}\t${r.result}\t${r.type}\t${r.details}`).join('\n'); navigator.clipboard.writeText(text).then(() => alert('Report copied to clipboard!')); }
+        function indexNodes(list) { list.forEach(f => { const p = f.properties; if(p.ID) spliceLookup[p.ID] = f; if(p.NAME) nameToIdMap[p.NAME.trim()] = p.ID; if(p.SITE_CODE) nameToIdMap[p.SITE_CODE.trim()] = p.SITE_CODE; }); }
+        function findRoot(i) { if(ufParent[i]===undefined) ufParent[i]=i; if(ufParent[i]!==i) ufParent[i]=findRoot(ufParent[i]); return ufParent[i]; }
+        function unionSets(i,j) { const rI=findRoot(i), rJ=findRoot(j); if(rI!==rJ) ufParent[rI]=rJ; }
+        function buildGraph() {
+            networkGraph={}; ufParent={};
+            allCables.forEach(c => {
+                const p=c.properties; const u=p.LINK1, v=p.LINK2;
+                if(!u || !v || u===v) return;
+                if(p.NAME && p.NAME.startsWith("OF")) return;
+                if(p.CABLE_STATUS==='PD' || p.CABLE_STATUS==='DF') return;
+                unionSets(u,v);
+                const cost = Math.max(parseFloat(p.SPAN_LENGTH)||10, 1);
+                const edge = { target:v, cost, cableId:p.ID, cableName:p.NAME, props:p };
+                const rev = { target:u, cost, cableId:p.ID, cableName:p.NAME, props:p };
+                if(!networkGraph[u]) networkGraph[u]=[]; networkGraph[u].push(edge);
+                if(!networkGraph[v]) networkGraph[v]=[]; networkGraph[v].push(rev);
+            });
+        }
+
+        // --- NEW CONSTRAINT & UI LOGIC ---
+
+        function handleModeChange() {
+            updatePathInputs();
+            constraintState = {}; 
+            currentScopeId = '0';
+            renderConstraintsUI();
+        }
+
+        function saveConstraintState() {
+            const scope = currentScopeId;
+            if(!constraintState[scope]) constraintState[scope] = {};
+            
+            const avoidC = document.getElementById('avoidCables');
+            const incC = document.getElementById('includeCables');
+            const avoidS = document.getElementById('avoidSplices');
+            const incS = document.getElementById('includeSplices');
+            
+            if(avoidC) constraintState[scope].avoidCables = avoidC.value;
+            if(incC) constraintState[scope].includeCables = incC.value;
+            if(avoidS) constraintState[scope].avoidSplices = avoidS.value;
+            if(incS) constraintState[scope].includeSplices = incS.value;
+        }
+
+        function switchConstraintTab(scope) {
+            saveConstraintState();
+            currentScopeId = scope;
+            renderConstraintsUI();
+        }
+
+        function renderConstraintsUI() {
+            const mode = document.getElementById('modeSelect').value;
+            const container = document.getElementById('constraintsUI');
+            const selector = document.getElementById('constraintSelector');
+            
+            const vals = constraintState[currentScopeId] || { avoidCables:'', includeCables:'', avoidSplices:'', includeSplices:'' };
+
+            if(mode === 'single') {
+                selector.innerHTML = '';
+            } else if (mode === 'diverse') {
+                selector.innerHTML = `
+                    <div class="flex bg-slate-100 dark:bg-slate-800 rounded p-0.5">
+                        <div onclick="switchConstraintTab('0')" class="px-2 py-1 rounded text-[9px] font-bold cursor-pointer transition ${currentScopeId==='0' ? 'bg-white shadow text-brand-600' : 'text-slate-400 hover:text-slate-600'}">Path 1</div>
+                        <div onclick="switchConstraintTab('1')" class="px-2 py-1 rounded text-[9px] font-bold cursor-pointer transition ${currentScopeId==='1' ? 'bg-white shadow text-emerald-600' : 'text-slate-400 hover:text-slate-600'}">Path 2</div>
+                    </div>`;
+            } else if (mode === 'ring') {
+                const stops = document.querySelectorAll('.ring-stop');
+                let options = '';
+                for(let i=0; i<stops.length-1; i++) {
+                    options += `<option value="${i}" ${currentScopeId==String(i)?'selected':''}>Leg ${i+1}: ${String.fromCharCode(65+i)}→${String.fromCharCode(66+i)}</option>`;
+                }
+                if(options === '') options = `<option value="0">Leg 1: A→B</option>`;
+
+                selector.innerHTML = `
+                    <select onchange="switchConstraintTab(this.value)" class="text-[9px] font-bold bg-slate-100 dark:bg-slate-800 border-none rounded py-1 pl-2 pr-6 text-brand-700 cursor-pointer outline-none focus:ring-0">
+                        ${options}
+                    </select>`;
+            }
+
+            const borderColor = currentScopeId === '1' && mode === 'diverse' ? 'border-emerald-200 focus-within:border-emerald-500' : 'border-slate-300 dark:border-slate-700 focus-within:border-brand-500';
+            const labelColor = currentScopeId === '1' && mode === 'diverse' ? 'text-emerald-600' : 'text-slate-500';
+
+            container.innerHTML = `
+                <div class="animate-fade-in">
+                    <div class="modern-input-group mb-0">
+                        <label class="modern-input-label ${labelColor}">Avoid Cables</label>
+                        <div class="modern-input-wrapper ${borderColor}">
+                            <input id="avoidCables" class="modern-input" placeholder="Ids/Names..." value="${vals.avoidCables||''}">
+                        </div>
+                    </div>
+                    <div class="modern-input-group mb-0">
+                        <label class="modern-input-label text-brand-600">Must Include Cables</label>
+                        <div class="modern-input-wrapper border-brand-200 focus-within:border-brand-500">
+                            <input id="includeCables" class="modern-input" placeholder="Ids/Names..." value="${vals.includeCables||''}">
+                        </div>
+                    </div>
+                     <div class="modern-input-group mb-0">
+                        <label class="modern-input-label ${labelColor}">Avoid Splices</label>
+                        <div class="modern-input-wrapper ${borderColor}">
+                            <input id="avoidSplices" class="modern-input" placeholder="Ids/Names..." value="${vals.avoidSplices||''}">
+                        </div>
+                    </div>
+                     <div class="modern-input-group mb-0">
+                        <label class="modern-input-label text-brand-600">Must Include Splices</label>
+                        <div class="modern-input-wrapper border-brand-200 focus-within:border-brand-500">
+                            <input id="includeSplices" class="modern-input" placeholder="Ids/Names..." value="${vals.includeSplices||''}">
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function updatePathInputs() { 
+            const mode = document.getElementById('modeSelect').value; 
+            const div = document.getElementById('pathInputs'); 
+            
+            let valStart = '', valEnd = '';
+            if(document.getElementById('pathStart')) valStart = document.getElementById('pathStart').value;
+            if(document.getElementById('pathEnd')) valEnd = document.getElementById('pathEnd').value;
+            
+            if(mode === 'diverse' || mode === 'ring') document.getElementById('divConstraintsCard').classList.remove('hidden');
+            else document.getElementById('divConstraintsCard').classList.add('hidden');
+
+            if(mode==='ring') {
+                let stopsHTML = '';
+                const existingStops = document.querySelectorAll('.ring-stop');
+                if(existingStops.length > 0) {
+                     existingStops.forEach((el, i) => {
+                         const char = String.fromCharCode(65 + i);
+                         stopsHTML += createStopInput(char, el.value, i);
+                     });
+                } else {
+                     stopsHTML = createStopInput('A', valStart, 0) + createStopInput('B', valEnd, 1);
+                }
+
+                div.innerHTML = `<div id="stopsContainer" class="space-y-2 mb-3">${stopsHTML}</div>
+                <button onclick="addStopInput()" class="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-bold rounded-lg border border-slate-200 transition"><i class="fa-solid fa-plus-circle mr-1"></i> Add Hop</button>`; 
+            } else { 
+                div.innerHTML = `
+                <div class="modern-input-group">
+                    <label class="modern-input-label">Source Asset</label>
+                    <div class="modern-input-wrapper">
+                        <div class="modern-input-icon"><i class="fa-solid fa-play text-emerald-600"></i></div>
+                        <input id="pathStart" class="modern-input" placeholder="Splice Name or Site Code..." value="${valStart}">
+                        <div class="modern-input-action" onclick="zoomToId('pathStart')"><i class="fa-solid fa-crosshairs"></i></div>
+                    </div>
+                </div>
+                <div class="modern-input-group">
+                    <label class="modern-input-label">Destination Asset</label>
+                    <div class="modern-input-wrapper">
+                        <div class="modern-input-icon"><i class="fa-solid fa-flag-checkered text-red-600"></i></div>
+                        <input id="pathEnd" class="modern-input" placeholder="Splice Name or Site Code..." value="${valEnd}">
+                        <div class="modern-input-action" onclick="zoomToId('pathEnd')"><i class="fa-solid fa-crosshairs"></i></div>
+                    </div>
+                </div>`; 
+            }
+        }
+
+        function createStopInput(char, val, idx) {
+            return `<div class="modern-input-wrapper mb-2 group animate-fade-in">
+                 <div class="modern-input-icon"><i class="fa-solid fa-circle-dot text-brand-600"></i></div>
+                 <input id="stop${idx}" class="modern-input ring-stop" placeholder="Stop ${char}" value="${val||''}">
+                 <div class="modern-input-action" onclick="zoomToId('stop${idx}')"><i class="fa-solid fa-crosshairs"></i></div>
+                 ${idx > 1 ? '<div class="modern-input-action text-red-400 hover:text-red-600" onclick="removeStop(this)"><i class="fa-solid fa-trash-can"></i></div>' : ''}
+            </div>`;
+        }
+
+        function addStopInput() { 
+            const container = document.getElementById('stopsContainer');
+            const count = document.querySelectorAll('.ring-stop').length;
+            const char = String.fromCharCode(65 + count); 
+            const div = document.createElement('div');
+            div.innerHTML = createStopInput(char, '', count);
+            container.appendChild(div.firstElementChild);
+            renderConstraintsUI(); 
+        }
+        
+        function removeStop(el) {
+            el.parentElement.remove();
+            const stops = [];
+            document.querySelectorAll('.ring-stop').forEach(i => stops.push(i.value));
+            const container = document.getElementById('stopsContainer');
+            container.innerHTML = '';
+            stops.forEach((val, i) => {
+                const char = String.fromCharCode(65 + i);
+                const d = document.createElement('div');
+                d.innerHTML = createStopInput(char, val, i);
+                container.appendChild(d.firstElementChild);
+            });
+            renderConstraintsUI();
+        }
+
+        function getHardConstraints(scopeId) {
+            let vals;
+            if (scopeId === currentScopeId) {
+                 vals = {
+                    avoidCables: document.getElementById('avoidCables').value,
+                    includeCables: document.getElementById('includeCables').value,
+                    avoidSplices: document.getElementById('avoidSplices').value,
+                    includeSplices: document.getElementById('includeSplices').value
+                };
+            } else {
+                vals = constraintState[scopeId] || {};
+            }
+
+            const parseList = (str) => (!str ? [] : str.split(',').map(s => s.trim()).filter(s => s.length > 0));
+            
+            const constraints = { avoidEdges: new Set(), avoidNodes: new Set(), includeWaypoints: [] };
+            
+            parseList(vals.avoidCables).forEach(s => {
+                const id = resolveId(s);
+                if(id && cableLookup[id]) constraints.avoidEdges.add(id);
+                if(cableSegmentsByName[s]) cableSegmentsByName[s].forEach(c => constraints.avoidEdges.add(c.properties.ID));
+            });
+            parseList(vals.avoidSplices).forEach(s => {
+                const id = resolveId(s);
+                if(id && spliceLookup[id]) constraints.avoidNodes.add(id);
+            });
+            parseList(vals.includeSplices).forEach(s => {
+                const id = resolveId(s);
+                if(id && spliceLookup[id]) constraints.includeWaypoints.push({ type: 'node', id: id, name: s });
+            });
+            parseList(vals.includeCables).forEach(s => {
+                 const id = resolveId(s);
+                 if(id && cableLookup[id]) constraints.includeWaypoints.push({ type: 'edge', id: id, name: s, obj: cableLookup[id] });
+                 else if (cableSegmentsByName[s]) {
+                     constraints.includeWaypoints.push({ type: 'edge', id: cableSegmentsByName[s][0].properties.ID, name: s, obj: cableSegmentsByName[s][0] });
+                 }
+            });
+            return constraints;
+        }
+
+        function checkConstraint(item, constr) {
+            if(constr.type === 'edge') {
+                if(constr.key === 'aerial' && item.props.CONSTRUCT_TYPE==='AR') return false;
+                if(constr.key === 'new' && item.props.CABLE_STATUS==='PA') return false;
+                if(constr.key === 'iof' && (item.props.IOF==='Y' || (item.cableName||'').match(/_AP|_MA|_SB|_SM/))) return false;
+            } else if(constr.type === 'node') {
+                const p = spliceLookup[item]?.properties;
+                if(!p) return true; 
+                if(p.SITE_CODE) return false; 
+                if(constr.key && constr.key.startsWith('RS-') && p.RS_CODE === constr.key) return false;
+                if(constr.key === 'citi' && ((p.MANHOLE||'').includes('CP_') || (p.RS_COMMENTS||'').includes('citi'))) return false;
+            }
+            return true;
+        }
+
+        // --- IMPROVED PATHFINDING ENGINE ---
+        
+        function calculateOverlap(pathA, pathB) {
+            let shared = 0;
+            const setA = new Set(pathA.map(s => s.cableId));
+            pathB.forEach(s => { if (setA.has(s.cableId)) shared++; });
+            return shared / Math.min(pathA.length, pathB.length);
+        }
+
+        async function findPath() {
+            saveConstraintState(); 
+            const mode = document.getElementById('modeSelect').value;
+            
+            let rawStops = [];
+            if(mode === 'ring') document.querySelectorAll('.ring-stop').forEach(i => { if(i.value) rawStops.push(i.value); });
+            else rawStops = [document.getElementById('pathStart').value, document.getElementById('pathEnd').value];
+
+            const stopSets = rawStops.map(val => resolveNodeSet(val));
+            if(stopSets.some(s => s.length === 0)) { alert("Invalid ID/Name. Please select valid assets."); return; }
+            if(!networkGraph) { alert("No network data loaded."); return; }
+            
+            const priorityList = getActiveConstraints();
+            const maxDist = (parseFloat(document.getElementById('maxDist').value) || Infinity) * 1000;
+            const divConst = getDiversitySettings(); 
+
+            solutionSets = []; foundPaths = [];
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            document.getElementById('progressBar').style.width = '10%';
+            
+            endpointLayer.clearLayers();
+            rawStops.forEach(val => {
+                const id = resolveId(val); 
+                let stopNode = spliceLookup[id];
+                if(!stopNode && siteConnectivity[id]) stopNode = spliceLookup[Array.from(siteConnectivity[id])[0]];
+                if(stopNode) {
+                    L.marker([stopNode.geometry.coordinates[1], stopNode.geometry.coordinates[0]], {
+                        icon: L.divIcon({className: 'bg-transparent', html: `<div class="w-3 h-3 bg-blue-600 rounded-full border-2 border-white shadow-md"></div>`})
+                    }).addTo(endpointLayer).bindTooltip(val, { permanent: true, direction: 'top', className: 'endpoint-label', offset: [0, -5] });
+                }
+            });
+
+            await new Promise(r => setTimeout(r, 50)); 
+
+            try {
+                if(mode === 'single') {
+                    const constraints = getHardConstraints('0');
+                    document.getElementById('loadingSubtitle').innerText = "Finding geographically diverse routes...";
+                    
+                    // Generate candidates using strict iterative penalties
+                    const candidates = await generatePathCandidates(stopSets[0], stopSets[1], priorityList, constraints, maxDist, 5);
+                    
+                    if(candidates.length > 0) {
+                        candidates.forEach((p, i) => {
+                            solutionSets.push({ id: i, label: `Option ${i+1} (${Math.round(p.length/10)/100}km) <span class="tier-tag ${p.tierClass}">${p.tierLabel}</span>`, paths: [{ segments: p.segments, color:'#2563eb', label:'Primary' }] });
+                        });
+                    } else { alert("No paths found. Try relaxing hard constraints."); }
+                } 
+                else if(mode === 'diverse') {
+                    document.getElementById('loadingSubtitle').innerText = "Analyzing diverse combinations...";
+                    
+                    const const1 = getHardConstraints('0');
+                    const const2 = getHardConstraints('1');
+                    
+                    // Generate large pools for cross-referencing
+                    const pool1 = await generatePathCandidates(stopSets[0], stopSets[1], priorityList, const1, maxDist, 8);
+                    const pool2 = await generatePathCandidates(stopSets[0], stopSets[1], priorityList, const2, maxDist, 8);
+                    
+                    const topPairs = findCrossDiversePairs(pool1, pool2, divConst, 5);
+                    
+                    if(topPairs.length > 0) {
+                        topPairs.forEach((pair, i) => {
+                            solutionSets.push({
+                                id: i,
+                                label: `Option ${i+1} (Score: ${Math.round(pair.score)}) <span class="tier-tag ${pair.tierClass}">${pair.tierLabel}</span>`,
+                                paths: [
+                                    { segments: pair.p1.segments, color:'#2563eb', label:'Primary Path' },
+                                    { segments: pair.p2.segments, color:'#16a34a', label:'Diverse Pair' }
+                                ]
+                            });
+                        });
+                    } else {
+                         // Fallback if no strict diversity found, just show best single options
+                         if(pool1.length>0) solutionSets.push({ id: 0, label: 'No Strict Diverse Pair Found', paths: [{ segments: pool1[0].segments, color:'#2563eb', label:'Primary' }], isError: true });
+                         else alert("No valid paths found.");
+                    }
+                }
+                else if(mode === 'ring') {
+                    let legsCandidates = [];
+                    let brokenLegIndex = -1;
+                    
+                    for(let i=0; i<stopSets.length-1; i++) {
+                        document.getElementById('loadingSubtitle').innerText = `Optimizing Leg ${i+1}...`;
+                        const legConst = getHardConstraints(String(i)); 
+                        // Generate multiple candidates for each leg to allow for diversity selection
+                        const cands = await generatePathCandidates(stopSets[i], stopSets[i+1], priorityList, legConst, maxDist, 6);
+                        
+                        if(cands.length === 0) { 
+                            brokenLegIndex = i;
+                            break; 
+                        }
+                        legsCandidates.push(cands);
+                        await new Promise(r => setTimeout(r, 10));
+                    }
+                    
+                    if(brokenLegIndex !== -1) {
+                        // Error handling code same as before
+                         const paths = [];
+                         // ... (keep existing error visual logic)
+                         solutionSets.push({ id: 0, label: `Error: Broken at Leg ${brokenLegIndex+1}`, paths: [], isError: true });
+                    } else {
+                        const topChains = findTopRingChains(legsCandidates, divConst, 5);
+                        if(topChains.length > 0) {
+                            topChains.forEach((chain, i) => {
+                                 const paths = chain.map((leg, lIdx) => ({
+                                    segments: leg.segments,
+                                    color: ['#2563eb','#16a34a','#d97706','#7c3aed'][lIdx%4],
+                                    label: `Leg ${lIdx+1}`
+                                }));
+                                solutionSets.push({ id: i, label: `Option ${i+1} (${Math.round(chain.totalLen/10)/100}km) <span class="tier-tag ${chain.tierClass}">${chain.tierLabel}</span>`, paths: paths });
+                            });
+                        }
+                    }
+                }
+            } catch(e) { console.error(e); alert("Search error: " + e.message); } finally {
+                document.getElementById('progressBar').style.width = '100%';
+                setTimeout(() => {
+                    document.getElementById('loadingOverlay').classList.add('hidden');
+                    if(solutionSets.length > 0) { 
+                        renderSolutionSelector(); 
+                        switchSolution(0); 
+                    }
+                }, 200);
+            }
+        }
+
+        async function generatePathCandidates(starts, ends, priorityList, constraints, maxDist, limit) {
+             let candidates = [];
+             let penalties = new Map(); // Map<cableId, penaltyMultiplier>
+
+             // Iterative Penalty Method (approximation of Yen's)
+             // Loop more times than 'limit' to allow for discarding "similar" paths
+             for(let k=0; k < limit * 3; k++) {
+                 
+                 // Run A* with current penalty map
+                 let path = await runBidirectionalAStar(starts, ends, priorityList, constraints, maxDist, penalties);
+                 
+                 if(!path) break; // Exhausted possibilities
+                 
+                 // SIMILARITY CHECK:
+                 // Don't just accept any path. If it shares > 15% edges with an existing candidate, reject it 
+                 // but STILL penalize it to force the algorithm to find something else.
+                 let isDuplicate = false;
+                 for(let existing of candidates) {
+                     const overlap = calculateOverlap(path, existing.segments);
+                     if(overlap > 0.15) { // Strict 15% overlap threshold
+                         isDuplicate = true;
+                         break;
+                     }
+                 }
+                 
+                 // Penalize this path for the NEXT iteration (whether we keep it or not)
+                 // This forces "physical diversity" by making used fibres extremely expensive
+                 path.forEach(seg => {
+                     const current = penalties.get(seg.cableId) || 0;
+                     penalties.set(seg.cableId, current + 50); // Massive 5000% cost increase
+                 });
+
+                 if(!isDuplicate) {
+                     candidates.push({ 
+                         segments: path, 
+                         length: getPathLength(path), 
+                         edgeIds: new Set(path.map(x=>x.cableId)), 
+                         nodeIds: new Set(path.map(x=>x.target)),
+                         leadIn: path[0].cableId,
+                         leadOut: path[path.length-1].cableId,
+                         tierLabel: "Distinct", 
+                         tierClass: "tier-gold"
+                     });
+                 }
+                 
+                 if(candidates.length >= limit) break;
+             }
+             
+             return candidates;
+        }
+
+        function findCrossDiversePairs(pool1, pool2, divSettings, limit) {
+            let pairs = [];
+            // Compare all against all
+            pool1.forEach(p1 => {
+                pool2.forEach(p2 => {
+                    // Strict Diversity Scoring
+                    let sharedEdges = 0;
+                    let sharedNodes = 0;
+                    
+                    // Calculate intersections
+                    for(let e of p1.edgeIds) { if(p2.edgeIds.has(e)) sharedEdges++; }
+                    for(let n of p1.nodeIds) { if(p2.nodeIds.has(n)) sharedNodes++; }
+                    
+                    const sameLeadIn = p1.leadIn === p2.leadIn;
+                    const sameLeadOut = p1.leadOut === p2.leadOut;
+                    
+                    // Diversity Score (Lower is better)
+                    // Priority: Shared Fibres > Shared Nodes > Lead-ins > Length
+                    // Weights designed to make 1 overlap worse than any length difference
+                    let score = (sharedEdges * 1000000) + 
+                                (sharedNodes * 100000) + 
+                                ((sameLeadIn ? 1 : 0) * 50000) + 
+                                ((sameLeadOut ? 1 : 0) * 50000) + 
+                                (p1.length + p2.length);
+
+                    // If "Strict" filtering is implied by user request ("if not different enough don't show")
+                    // We only discard if they are practically identical (e.g. huge overlap)
+                    // Otherwise we let the scoring push them to the bottom.
+                    if(sharedEdges > (p1.segments.length * 0.5)) return; // Discard if >50% overlap
+
+                    let tierLabel = "High Diversity";
+                    let tierClass = "tier-gold";
+                    
+                    if(sharedEdges > 0) { tierLabel = "Fibre Overlap"; tierClass = "tier-fail"; }
+                    else if(sharedNodes > 0) { tierLabel = "Node Overlap"; tierClass = "tier-bronze"; }
+                    else if(sameLeadIn || sameLeadOut) { tierLabel = "Shared Lead-in"; tierClass = "tier-silver"; }
+
+                    pairs.push({ p1: p1, p2: p2, score: score, tierLabel: tierLabel, tierClass: tierClass });
+                });
+            });
+            
+            pairs.sort((a,b) => a.score - b.score);
+            
+            // Apply the "Don't show" rule strictly for top results
+            // Filter out pairs that have ANY edge overlap if better options exist
+            const perfectPairs = pairs.filter(p => p.score < 100000);
+            if(perfectPairs.length > 0) return perfectPairs.slice(0, limit);
+            
+            return pairs.slice(0, limit);
+        }
+
+        function findTopRingChains(legsCandidates, divSettings, limit) {
+            let foundChains = [];
+            
+            function search(legIdx, currentChain, usedEdges, usedNodes) {
+                if(legIdx >= legsCandidates.length) {
+                    // Chain complete
+                    let score = 0;
+                    let issues = [];
+                    currentChain.forEach(c => score += c.length);
+                    foundChains.push({ chain: [...currentChain], totalLen: score, tierLabel: "Diverse Ring", tierClass: "tier-gold" });
+                    return;
+                }
+                
+                const candidates = legsCandidates[legIdx]; 
+                
+                // Try strictly diverse paths first
+                for(let cand of candidates) {
+                    let overlapEdge = 0;
+                    for(let e of cand.edgeIds) if(usedEdges.has(e)) overlapEdge++;
+                    
+                    // For rings, allow shared start/end nodes of legs, but not internal nodes
+                    // Simple check: huge penalty for reuse
+                    
+                    if(overlapEdge === 0) {
+                        const newEdges = new Set(usedEdges);
+                        for(let e of cand.edgeIds) newEdges.add(e);
+                        currentChain.push(cand);
+                        search(legIdx + 1, currentChain, newEdges, usedNodes);
+                        currentChain.pop();
+                    }
+                }
+            }
+            
+            search(0, [], new Set(), new Set());
+            foundChains.sort((a,b) => a.totalLen - b.totalLen);
+            return foundChains.slice(0, limit).map(fc => fc.chain);
+        }
+
+        // --- CORE A* with PENALTIES ---
+        function runBidirectionalAStar(startNodes, endNodes, priorityList, constraints, maxDist, penaltyMap) {
+            const fwd=new BinaryHeap(n=>n.f), bwd=new BinaryHeap(n=>n.f);
+            const fDist={}, bDist={}, fPrev={}, bPrev={}, fVis=new Set(), bVis=new Set();
+            const startSet = new Set(startNodes); const endSet = new Set(endNodes);
+            const exclE = constraints.avoidEdges; const exclN = constraints.avoidNodes;
+
+            startNodes.forEach(s => { fDist[s]=0; fwd.push({id:s, f:0}); });
+            endNodes.forEach(e => { bDist[e]=0; bwd.push({id:e, f:0}); });
+            
+            while(fwd.size()>0 && bwd.size()>0) {
+                if(fwd.size()>0) {
+                    const u = fwd.pop().id;
+                    if(fDist[u] > maxDist) continue; 
+                    if(!fVis.has(u)) {
+                        fVis.add(u);
+                        if(bVis.has(u)) { if(fDist[u] + bDist[u] <= maxDist) return reconstructBidirectionalPath(fPrev, bPrev, u, startSet, endSet); }
+                        if(networkGraph[u]) for(const e of networkGraph[u]) {
+                            if(exclE.has(e.cableId) || exclN.has(e.target)) continue;
+                            if(!checkConstraintsList(e, priorityList)) continue;
+                            
+                            // Diversity Penalty Calculation
+                            let penalty = 1;
+                            if(penaltyMap && penaltyMap.has(e.cableId)) penalty += penaltyMap.get(e.cableId);
+                            
+                            const stepCost = e.cost * penalty;
+                            
+                            const alt = fDist[u] + stepCost;
+                            if(fDist[e.target]===undefined || alt < fDist[e.target]) {
+                                fDist[e.target]=alt; fPrev[e.target]={...e, from:u};
+                                fwd.push({id:e.target, f:alt + getDist(e.target, endNodes[0])});
+                            }
+                        }
+                    }
+                }
+                if(bwd.size()>0) {
+                    const v = bwd.pop().id;
+                    if(bDist[v] > maxDist) continue;
+                    if(!bVis.has(v)) {
+                        bVis.add(v);
+                        if(fVis.has(v)) { if(fDist[v] + bDist[v] <= maxDist) return reconstructBidirectionalPath(fPrev, bPrev, v, startSet, endSet); }
+                        if(networkGraph[v]) for(const e of networkGraph[v]) {
+                            if(exclE.has(e.cableId) || exclN.has(e.target)) continue;
+                            if(!checkConstraintsList(e, priorityList)) continue;
+                            
+                             // Diversity Penalty Calculation
+                            let penalty = 1;
+                            if(penaltyMap && penaltyMap.has(e.cableId)) penalty += penaltyMap.get(e.cableId);
+                            
+                            const stepCost = e.cost * penalty;
+                            
+                            const alt = bDist[v] + stepCost;
+                            if(bDist[e.target]===undefined || alt < bDist[e.target]) {
+                                bDist[e.target]=alt; bPrev[e.target]={...e, from:v};
+                                bwd.push({id:e.target, f:alt + getDist(e.target, startNodes[0])});
+                            }
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        function checkConstraintsList(edge, list) {
+            for(let c of list) { if(!checkConstraint(edge, c)) return false; }
+            return true;
+        }
+        
+        function reconstructBidirectionalPath(fwdPrev, bwdPrev, meetingNode, startSet, endSet) {
+            const path = []; let curr = meetingNode; const fwdPart = []; 
+            while(!startSet.has(curr)) { const edge = fwdPrev[curr]; if(!edge) break; fwdPart.push(edge); curr = edge.from; }
+            for (let i = fwdPart.length - 1; i >= 0; i--) path.push(fwdPart[i]);
+            curr = meetingNode;
+            while(!endSet.has(curr)) { const edge = bwdPrev[curr]; if(!edge) break; path.push({ from: curr, target: edge.from, cost: edge.cost, cableId: edge.cableId, cableName: edge.cableName }); curr = edge.from; }
+            return path;
+        }
+
+        function getDist(idA, idB) { const a = spliceLookup[idA], b = spliceLookup[idB]; if (!a || !b) return 0; const c1 = a.geometry.coordinates, c2 = b.geometry.coordinates; return Math.sqrt(Math.pow(c1[0]-c2[0], 2) + Math.pow(c1[1]-c2[1], 2)) * 100000; }
+        function getPathLength(path) { return path.reduce((sum, step) => { if(step.cableName && cableSegmentsByName[step.cableName]) return sum + cableSegmentsByName[step.cableName].reduce((s,f)=>s+(parseFloat(f.properties.SPAN_LENGTH)||0),0); return sum + step.cost; }, 0); }
+        function renderPriorityList() { const c = document.getElementById('priorityList'); c.innerHTML=''; DEFAULT_PRIORITIES.forEach(p => { c.innerHTML+=`<div class="draggable-item flex items-center gap-2 bg-white dark:bg-slate-800 p-2 rounded-md border border-slate-100 dark:border-slate-700 text-[10px] shadow-sm mb-1 group hover:border-brand-200" data-id="${p.id}" data-type="${p.type}" data-key="${p.key||p.code}"><i class="fa-solid fa-grip-vertical text-slate-300"></i><input type="checkbox" class="priority-chk accent-brand-600 w-3 h-3 rounded" checked><span class="flex-1 font-medium text-slate-600 dark:text-slate-300 truncate">${p.label}</span></div>`; }); new Sortable(c, { animation: 150 }); }
+        function renderDiversityList() { const c = document.getElementById('diversityList'); c.innerHTML=''; DEFAULT_DIVERSITY.forEach(p => { c.innerHTML+=`<div class="draggable-item flex items-center gap-2 bg-white dark:bg-slate-900 p-2 rounded-md border border-slate-100 dark:border-slate-700 text-[10px] shadow-sm" data-id="${p.id}"><i class="fa-solid fa-grip-vertical text-slate-300"></i><input type="checkbox" class="diversity-chk accent-brand-600 w-3 h-3 rounded" checked><span class="flex-1 font-medium text-brand-700 dark:text-brand-400 truncate">${p.label}</span></div>`; }); new Sortable(c, { animation: 150 }); }
+        function toggleAllPriorities(cb) { document.querySelectorAll('.priority-chk').forEach(c => c.checked = cb.checked); }
+        function getActiveConstraints() { const active = []; document.querySelectorAll('#priorityList .draggable-item').forEach((el, idx) => { if(el.querySelector('.priority-chk').checked) active.push({ type: el.dataset.type, key: el.dataset.key, label: el.innerText }); }); return active; }
+        function getDiversitySettings() { const active = {}; document.querySelectorAll('#diversityList .draggable-item').forEach((el) => { if(el.querySelector('.diversity-chk').checked) active[el.dataset.id] = true; }); return active; }
+        function resolveId(v) { if(!v) return null; v=v.trim(); return spliceLookup[v]?v : nameToIdMap[v] || nameToIdMap[v.toUpperCase()]; }
+        function setVal(id, val) { 
+            let displayVal = val;
+            const asset = spliceLookup[val] || cableLookup[val];
+            if(asset) { if(asset.properties.NAME) displayVal = asset.properties.NAME; else if(asset.properties.SITE_CODE) displayVal = asset.properties.SITE_CODE; }
+            document.getElementById(id).value = displayVal; 
+            switchTab('pathfinder'); 
+            map.closePopup(); 
+            if(id.startsWith('stop')) renderConstraintsUI();
+        }
+        function getCableStyle(f) { const p=f.properties; let c='#2563eb', w=2, o=0.8, d=null; if(p.CABLE_STATUS==='PA') c='#10b981'; else if(p.CABLE_STATUS==='PD') { c='#94a3b8'; o=0.4; } else if((p.NAME||'').match(/BLS|XLS/)) c='#d97706'; if(p.CONSTRUCT_TYPE==='AR') { w=2; d='4,6'; } return { color:c, weight:w, opacity:o, dashArray:d }; }
+        function createSpliceMarker(f,l) { return L.circleMarker(l, { radius:2, fillColor:f.properties.RESTRICTED==='Y'?'#ef4444':'#9333ea', color:'#fff', weight:1, opacity:1, fillOpacity:1 }); }
+        function createSiteMarker(f,l) { return L.circleMarker(l, { radius:4, fillColor:'#14b8a6', color:'#fff', weight:1, opacity:1, fillOpacity:1 }); }
+        function onEachCable(f,l) { layerLookup[f.properties.ID] = l; }
+        function onEachSplice(f,l) { layerLookup[f.properties.ID] = l; }
+        function onEachSite(f,l) { layerLookup[f.properties.ID] = l; }
+        function onEachPathSegment(f,l) { l.on('mouseover', function(){this.setStyle({weight:8})}); l.on('mouseout', function(){this.setStyle({weight:f.properties.active?6:4})}); }
+        function switchTab(t) { document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('border-brand-600','text-brand-700','dark:text-brand-400'); b.classList.add('border-transparent'); }); event.target.classList.remove('border-transparent'); event.target.classList.add('border-brand-600','text-brand-700','dark:text-brand-400'); document.getElementById('tab-browser').classList.add('hidden'); const pf = document.getElementById('tab-pathfinder'); pf.classList.add('hidden'); pf.classList.remove('flex'); document.getElementById('tab-'+t).classList.remove('hidden'); if(t === 'pathfinder') document.getElementById('tab-pathfinder').classList.add('flex'); }
+        function renderSidebar() { const list = document.getElementById('assetList'); const term = document.getElementById('searchInput').value.toLowerCase(); const frag = document.createDocumentFragment(); let count = 0; const limit = 50; for(let i=0; i<allSites.length && count<limit; i++) { const s = allSites[i].properties; if(!term || (s.SITE_CODE||'').toLowerCase().includes(term) || (s.ID||'').includes(term)) { frag.appendChild(createItem(s, 'site')); count++; } } for(let i=0; i<allSplices.length && count<limit*2; i++) { const s = allSplices[i].properties; if(!term || (s.NAME||'').toLowerCase().includes(term) || (s.ID||'').includes(term)) { frag.appendChild(createItem(s, 'splice')); count++; } } for(let i=0; i<allCables.length && count<limit*3; i++) { const c = allCables[i].properties; if(!term || (c.NAME||'').toLowerCase().includes(term) || (c.ID||'').includes(term)) { frag.appendChild(createItem(c, 'cable')); count++; } } list.innerHTML = ''; list.appendChild(frag); }
+        function createItem(p, type) { const el = document.createElement('div'); let icon = type==='cable'?'<i class="fa-solid fa-bolt text-brand-600"></i>':(type==='splice'?'<i class="fa-solid fa-circle-dot text-purple-600"></i>':'<i class="fa-solid fa-tower-cell text-teal-600"></i>'); el.className = "flex items-center gap-3 p-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer text-xs border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition"; el.innerHTML = `<div class="w-7 h-7 flex items-center justify-center bg-white dark:bg-slate-800 rounded-md border border-slate-200 shadow-sm">${icon}</div><div class="flex-1 min-w-0"><div class="truncate font-bold text-slate-700 dark:text-slate-200">${p.NAME||p.SITE_CODE}</div><div class="text-[9px] text-slate-400 font-mono truncate">${p.ID}</div></div>`; el.onclick = () => { const layer = layerLookup[p.ID]; if(layer) { if(layer.getBounds) map.fitBounds(layer.getBounds(), {padding:[50,50], maxZoom:16}); else { map.setView(layer.getLatLng(), 18); layer.openPopup(); } } }; return el; }
+        function updateStats(){ document.getElementById('stat-cable').innerText = allCables.length; document.getElementById('stat-splice').innerText = allSplices.length; document.getElementById('stat-site').innerText = allSites.length; let km=0; allCables.forEach(c=>km+=parseFloat(c.properties.SPAN_LENGTH)||0); document.getElementById('stat-km').innerText = (km/1000).toFixed(0); }
+        function exportPathCSV() { let csv = "Path,Leg,Seq,Cable,Length,From,To\n"; foundPaths.forEach((pathObj, pIdx) => { pathObj.segments.forEach((s, i) => { csv += `"${pathObj.label.replace(/<[^>]*>?/gm, '')}",1,${i+1},"${s.cableName||s.cableId}",${s.cost},"${s.from}","${s.target}"\n`; }); }); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'})); a.download='path.csv'; a.click(); }
+        function zoomToId(id) { const v = resolveId(document.getElementById(id).value); if(v && spliceLookup[v]) { map.setView([spliceLookup[v].geometry.coordinates[1], spliceLookup[v].geometry.coordinates[0]], 18); spliceLookup[v]._layer.openPopup(); } }
+        function highlightPathSegment(cableId, name) { pathLayer.eachLayer(layer => { if(layer.feature.properties.id === cableId && layer.feature.properties.active) { layer.setStyle({ color: '#f97316', weight: 8, opacity: 1 }); layer.bindTooltip(name, { sticky: true, className: 'bg-white border border-slate-300 text-[10px] font-bold px-2 py-1 shadow-md' }).openTooltip(); } }); }
+        function resetPathSegment(cableId) { pathLayer.eachLayer(layer => { if(layer.feature.properties.id === cableId && layer.feature.properties.active) { layer.setStyle({ color: layer.feature.properties.color, weight: 6, opacity: 1 }); layer.unbindTooltip(); } }); }
+        function zoomToPathSegment(cableId) { const bounds = L.latLngBounds([]); pathLayer.eachLayer(layer => { if(layer.feature.properties.id === cableId) bounds.extend(layer.getBounds()); }); if(bounds.isValid()) map.fitBounds(bounds, { padding: [100, 100] }); }
+        function resetPath() { pathLayer.clearLayers(); endpointLayer.clearLayers(); document.getElementById('pathSummaryCard').classList.add('hidden'); document.getElementById('solutionSelector').classList.add('hidden'); document.getElementById('resultsArea').classList.add('hidden'); foundPaths = []; }
+        
+        function renderSolutionSelector() { 
+            const container = document.getElementById('solutionBtns'); 
+            const selector = document.getElementById('solutionSelector'); 
+            const countBadge = document.getElementById('solutionCount');
+
+            if(solutionSets.length > 0) {
+                selector.classList.remove('hidden'); 
+                selector.classList.add('flex');
+                countBadge.innerText = solutionSets.length;
+                
+                container.innerHTML = solutionSets.map((sol, i) => { 
+                    const isActive = i === currentSolutionIndex;
+                    return `
+                    <button onclick="switchSolution(${i})" class="option-card-btn group ${isActive ? 'active' : ''} ${sol.isError ? 'error' : ''}">
+                        <div class="flex items-center justify-between w-full">
+                            <span class="font-bold text-[11px] leading-none">${sol.label.split('<')[0].split('(')[0]}</span>
+                            ${i===0 && !sol.isError ? '<i class="fa-solid fa-star text-yellow-400 text-[10px]"></i>' : ''}
+                            ${sol.isError ? '<i class="fa-solid fa-triangle-exclamation text-red-500 text-[10px]"></i>' : ''}
+                        </div>
+                        <div class="flex items-center justify-between w-full mt-1">
+                            <span class="text-[9px] opacity-70 font-mono">${sol.label.includes('(') ? sol.label.split('(')[1].split(')')[0] : ''}</span>
+                            ${sol.label.includes('span') ? sol.label.substring(sol.label.indexOf('<span')) : ''}
+                        </div>
+                    </button>`; 
+                }).join(''); 
+            } else {
+                selector.classList.add('hidden');
+                selector.classList.remove('flex');
+            }
+        }
+
+        function switchSolution(idx) { currentSolutionIndex = idx; renderSolutionSelector(); foundPaths = solutionSets[idx].paths; currentPathIndex = 0; renderPathSelector(); displayAllPathsOnMap(); renderSidebarPathList(); }
+        function displayAllPathsOnMap() { pathLayer.clearLayers(); const feats = []; foundPaths.forEach((pathObj, pIdx) => { const isActive = (pIdx === currentPathIndex); pathObj.segments.forEach((step, stepIdx) => { if(step.geometry){ feats.push({ type:"Feature", properties: { id: step.cableId||'BROKEN', violation: step.violation, isBroken: step.isBroken, color: pathObj.color, pathIndex: pIdx, active: isActive, stepOrder: stepIdx }, geometry: step.geometry }); } else { let geoms = []; if(step.cableName && cableSegmentsByName[step.cableName]) geoms = cableSegmentsByName[step.cableName]; else if(step.cableId && cableSegmentsById[step.cableId]) geoms = cableSegmentsById[step.cableId]; else if(cableLookup[step.cableId]) geoms = [cableLookup[step.cableId]]; geoms.forEach(g => { feats.push({ type:"Feature", properties: { id: step.cableId, violation: step.violation, color: pathObj.color, pathIndex: pIdx, active: isActive, stepOrder: stepIdx }, geometry: g.geometry }); }); } }); }); pathLayer.addData({type:"FeatureCollection", features:feats}); map.fitBounds(pathLayer.getBounds(), {padding:[50,50]}); }
+        function renderSidebarPathList() { const list = document.getElementById('pathResultsList'); list.innerHTML = ''; document.getElementById('resultsArea').classList.remove('hidden'); if(!foundPaths[currentPathIndex]) return; const pathObj = foundPaths[currentPathIndex]; document.getElementById('resultsTitle').innerHTML = pathObj.label; document.getElementById('resultsCount').innerText = pathObj.segments.length + " Segments"; let totalKm = 0; pathObj.segments.forEach((step, i) => { if(step.isBroken) { list.innerHTML += `<div class="p-3 bg-red-50 dark:bg-red-900/20 border-b border-red-100 dark:border-red-800"><div class="flex items-center gap-2 text-red-600 font-bold text-[11px]"><i class="fa-solid fa-circle-xmark"></i> Connectivity Failed</div><div class="text-[9px] text-red-500 mt-1">No valid path found between endpoints using current constraints.</div></div>`; return; } const cName = step.cableName || step.cableId; const from = spliceLookup[step.from]?.properties?.NAME || step.from; const to = spliceLookup[step.target]?.properties?.NAME || step.target; const len = Math.round(step.cost); if(step.cableName && cableSegmentsByName[step.cableName]) totalKm += cableSegmentsByName[step.cableName].reduce((s,c)=>s+(parseFloat(c.properties.SPAN_LENGTH)||0),0); else totalKm += step.cost; list.innerHTML += `<div class="p-3 bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition cursor-pointer group" onmouseover="highlightPathSegment('${step.cableId}', '${cName}')" onmouseout="resetPathSegment('${step.cableId}')" onclick="zoomToPathSegment('${step.cableId}')"><div class="flex justify-between items-center mb-1"><span class="font-bold text-[11px] text-brand-700 dark:text-brand-400 group-hover:underline">${i+1}. ${cName}</span><span class="text-[9px] font-mono bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-600">${len}m</span></div><div class="flex items-center gap-2 text-[9px] text-slate-500"><span class="truncate max-w-[45%]">${from}</span><i class="fa-solid fa-arrow-right text-slate-300"></i><span class="truncate max-w-[45%]">${to}</span></div></div>`; }); document.getElementById('summaryDistance').innerText = (totalKm/1000).toFixed(2); document.getElementById('pathSummaryCard').classList.remove('hidden'); }
+        function renderPathSelector() { const container = document.getElementById('pathSelectorBtns'); if(foundPaths.length > 0) { container.classList.remove('hidden'); container.innerHTML = foundPaths.map((p, i) => { return `<button onclick="switchPath(${i})" class="path-btn px-2 py-1 rounded-md text-[10px] font-bold transition flex items-center gap-1.5 ${i===currentPathIndex ? 'active' : ''}"><span class="w-2 h-2 rounded-full shadow-sm" style="background:${p.color}"></span> ${p.label}</button>`; }).join(''); } else { container.classList.add('hidden'); } }
+        function switchPath(index) { currentPathIndex = index; renderPathSelector(); displayAllPathsOnMap(); renderSidebarPathList(); }
+        function getPathStyle(f) { const isActive = f.properties.active; const isBroken = f.properties.isBroken; if(isBroken) return { color: '#ef4444', weight: 4, opacity: 1, dashArray: '8,8', className: 'broken-leg-dash' }; const w = isActive ? 6 : 4; const o = isActive ? 1.0 : 0.4; const c = f.properties.violation ? '#ef4444' : f.properties.color; const d = f.properties.violation ? '5,5' : null; return { color: c, weight: w, opacity: o, dashArray: d, className: isActive ? 'path-highlight' : 'path-dimmed' }; }
+
+        class BinaryHeap{constructor(e){this.content=[],this.scoreFunction=e}push(e){this.content.push(e),this.bubbleUp(this.content.length-1)}pop(){var e=this.content[0],t=this.content.pop();return this.content.length>0&&(this.content[0]=t,this.sinkDown(0)),e}size(){return this.content.length}bubbleUp(e){for(var t=this.content[e],n=this.scoreFunction(t);e>0;){var r=Math.floor((e+1)/2)-1,o=this.content[r];if(n>=this.scoreFunction(o))break;this.content[r]=t,this.content[e]=o,e=r}}sinkDown(e){for(var t=this.content.length,n=this.content[e],r=this.scoreFunction(n);;){var o=2*(e+1),i=o-1,s=null;if(i<t){var a=this.content[i],c=this.scoreFunction(a);c<r&&(s=i)}if(o<t){var l=this.content[o],u=this.scoreFunction(l);u<(null==s?r:c)&&(s=o)}if(null==s)break;this.content[e]=this.content[s],this.content[s]=n,e=s}}}
+        document.getElementById('searchInput').addEventListener('input', () => { clearTimeout(searchTimeout); searchTimeout = setTimeout(renderSidebar, 300); });
+    </script>
+</body>
+</html>
