@@ -1,0 +1,30 @@
+o2bi-52o2-j2kr
+leadin where it connects two sites
+23op-o3ba-o3bl
+if a path failed, show why it is failed, on what constraints it failed.
+
+when a path failed, this console log is shown
+
+adjust default constraints
+
+single:
+
+RS-NO is checked
+
+diverse pair:
+
+RS-NO is checked
+
+Ring:
+
+RS-NO is checked
+
+remove the diversity priority list, not required for now.
+
+the results area section has a bit of overshoot of the last cable it displayed, user cannot see it on the screen.
+
+when user hover the mouse over a found path result, both all paths that found under this option should be highlighted and if user click on the option, the highlight will stay until user clicked on another option or a specific path under this option.
+
+For primary path, don't use blueish color, as it blends in the color of the existing cables in the map. make all fibre paths color standout of the existing map UI.
+
+move the path-btn to the top of the solutionSelector for easy switching, make them a bit bigger font and also enclosed with something similar to a solutionSelector
