@@ -8,6 +8,7 @@ import csv
 import re
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog, StringVar
+import tkinter.scrolledtext as ScrolledText
 import tkinter.font as tkfont
 import webbrowser
 import requests
@@ -1490,21 +1491,23 @@ class FibreProcessor:
     # --- REPLACE the entire create_ui() in class FibreProcessor with this ---
 
     def create_ui(self):
-        # Source selection (CSV only, VMR disabled for now)
+        # Source selection
         source_frame = ttk.Frame(self.parent_frame)
         source_frame.grid(row=0, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0,4))
         ttk.Label(source_frame, text="Source:").grid(row=0, column=0, padx=(0,6))
+        
         self.source_var = tk.StringVar(value="CSV")
         self.source_combo = ttk.Combobox(
             source_frame,
             textvariable=self.source_var,
-            values=["CSV"],     # VMR removed from choices
-            state="disabled",   # disabled for users (CSV only)
+            values=["CSV", "VMR"],
+            state="readonly",
             width=10
         )
         self.source_combo.grid(row=0, column=1, padx=(0,10))
+        self.source_combo.bind("<<ComboboxSelected>>", lambda e: self._toggle_source_inputs())
 
-        # CSV file input (shown for CSV)
+        # CSV file input
         self.file_frame = ttk.Frame(self.parent_frame)
         self.file_frame.grid(row=1, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
         ttk.Label(self.file_frame, text="Select Input CSV File:").grid(row=0, column=0, padx=5)
@@ -1512,39 +1515,74 @@ class FibreProcessor:
         self.input_entry.grid(row=0, column=1, padx=5)
         ttk.Button(self.file_frame, text="Browse...", command=self.browse_file).grid(row=0, column=2, padx=5)
 
-        # VMR ID input (hidden/disabled while VMR is disabled)
+        # VMR ID input
         self.vmr_frame = ttk.Frame(self.parent_frame)
         self.vmr_frame.grid(row=2, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
         ttk.Label(self.vmr_frame, text="VMR Job/WO ID (digits):").grid(row=0, column=0, padx=5)
         self.vmr_id_entry = ttk.Entry(self.vmr_frame, width=20)
         self.vmr_id_entry.grid(row=0, column=1, padx=5)
-        # Hide VMR frame since source is CSV-only now
-        self.vmr_frame.grid_remove()
-
-        # Connect VMR (for Cross-Section crawl) — allow for CSV too
+        
+        # Connect VMR
         conn_frame = ttk.Frame(self.parent_frame)
         conn_frame.grid(row=3, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
         self.crawl_enabled = tk.BooleanVar(value=True)
-        self.crawl_check = ttk.Checkbutton(conn_frame, text="Connect VMR", variable=self.crawl_enabled)
+        self.crawl_check = ttk.Checkbutton(conn_frame, text="Connect VMR (Crawl Cross-Sections)", variable=self.crawl_enabled)
         self.crawl_check.grid(row=0, column=0, padx=5)
 
-        # Process
+        # Process Button
         ttk.Button(self.parent_frame, text="Process", command=self.process_data)\
             .grid(row=4, column=0, columnspan=3, pady=10)
 
-        # Results table
+        # Results Table
         self.create_treeview(self.parent_frame)
         self.tree.bind("<Motion>", lambda e: "break" if self.tree.identify_region(e.x, e.y) == "separator" else None)
 
-        ttk.Label(self.parent_frame, text="developed by Jian", foreground="gray")\
-            .grid(row=6, column=0, columnspan=3, pady=(10, 0))
+        # --- NEW: Log Window ---
+        log_frame = ttk.LabelFrame(self.parent_frame, text="Logs & Errors")
+        log_frame.grid(row=6, column=0, columnspan=3, sticky="nsew", pady=(10, 5))
+        
+        self.log_text = ScrolledText.ScrolledText(log_frame, height=6, state='disabled', font=("Consolas", 9))
+        self.log_text.pack(fill="both", expand=True, padx=5, pady=5)
 
+        ttk.Label(self.parent_frame, text="developed by Jian", foreground="gray")\
+            .grid(row=7, column=0, columnspan=3, pady=(0, 5))
 
         self.parent_frame.columnconfigure(0, weight=1)
-        self.parent_frame.rowconfigure(5, weight=1)
+        self.parent_frame.rowconfigure(5, weight=1) # Treeview gets most space
+        self.parent_frame.rowconfigure(6, weight=0) # Log window gets fixed height
+        
         self.setup_copy_functionality()
+        self._toggle_source_inputs() 
 
-        self._toggle_source_inputs()  # initialize states
+    def log(self, message):
+        """Helper to print to the GUI log window and console"""
+        ts = time.strftime("%H:%M:%S")
+        full_msg = f"[{ts}] {message}\n"
+        print(message) # keep console for dev
+        
+        self.log_text.configure(state='normal')
+        self.log_text.insert(tk.END, full_msg)
+        self.log_text.see(tk.END)
+        self.log_text.configure(state='disabled')
+        # Force UI update so logs appear immediately during heavy processing
+        self.parent_frame.update_idletasks()
+    def _toggle_source_inputs(self):
+        src = (self.source_var.get() or "CSV").upper()
+        if src == "CSV":
+            # Enable CSV, Disable VMR
+            self.file_frame.grid()
+            for child in self.file_frame.winfo_children(): child.configure(state="normal")
+            
+            self.vmr_frame.grid_remove()
+        else:
+            # Disable CSV, Enable VMR
+            self.file_frame.grid_remove()
+            
+            self.vmr_frame.grid()
+            for child in self.vmr_frame.winfo_children(): child.configure(state="normal")
+            
+            # Default to "Connect VMR" being checked for VMR source
+            self.crawl_enabled.set(True)
 
     # === ADD inside class FibreProcessor =========================================
     def browse_file(self):
@@ -1571,30 +1609,6 @@ class FibreProcessor:
         except Exception:
             # Fallback: if entry not yet created for some reason, ignore silently
             pass
-
-    # --- REPLACE the entire _toggle_source_inputs() in class FibreProcessor with this ---
-
-    def _toggle_source_inputs(self):
-        src = (self.source_var.get() or "CSV").upper()
-        if src == "CSV":
-            # enable CSV inputs
-            for child in self.file_frame.winfo_children():
-                child.configure(state="normal")
-            # disable VMR ID
-            for child in self.vmr_frame.winfo_children():
-                child.configure(state="disabled")
-            # Connect VMR checkbox: leave as-is (user choice)
-        else:  # VMR
-            # disable CSV inputs
-            for child in self.file_frame.winfo_children():
-                child.configure(state="disabled")
-            # enable VMR ID, default Connect VMR ON
-            for child in self.vmr_frame.winfo_children():
-                child.configure(state="normal")
-            try:
-                self.crawl_enabled.set(True)
-            except Exception:
-                pass
 
     def create_treeview(self, parent):
         self.row_meta = {}  # item_id -> {"segment_id": "..."}
@@ -1786,24 +1800,46 @@ class FibreProcessor:
         row_tags = self.tree.item(item, "tags") or ()
         has_alert = (val_dwdm == "Y") or ("cs_alert" in row_tags)
 
-        # Filter helper (expects "N-M") using 1-based slice of rows
+        # Filter helper (expects "N-M")
         def _filter_rows_by_tray_range(_rows, rng):
-            import re
-            s = (rng or "").strip()
-            if not s:
-                return _rows[:]  # empty/missing -> show all (guarded by UI anyway)
-            m = re.match(r"^\s*(\d+)\s*-\s*(\d+)\s*$", s)
-            if not m:
-                return _rows[:]  # malformed -> safest to show all
-            a, b = int(m.group(1)), int(m.group(2))
-            if a > b:
-                a, b = b, a
-            a = max(1, a)
-            b = min(len(_rows), b)
-            if a > b:
-                return []
-            return _rows[a-1:b]
+            try:
+                a, b = [int(x) for x in str(rng).split("-", 1)]
+            except Exception:
+                return _rows[:]  # if malformed, safest to show full
+            lo, hi = min(a, b), max(a, b)
 
+            # find a "fibre number" column heuristically
+            import re
+            # pick the column with the most 1..N integers
+            best_ci, best_hits = None, -1
+            for ci in range(len(headers or [])):
+                hits = 0
+                for r in _rows:
+                    if ci < len(r):
+                        m = re.search(r"\b(\d{1,4})\b", str(r[ci]))
+                        if m:
+                            hits += 1
+                if hits > best_hits:
+                    best_ci, best_hits = ci, hits
+
+            if best_ci is None or best_hits <= 0:
+                return _rows[:]  # cannot determine fibre column; show full
+
+            def in_tray(n):
+                if n is None:
+                    return False
+                tray_no = ((n - 1) // 6) + 1
+                return ((tray_no - 1) * 6 + 1) >= lo and ((tray_no - 1) * 6 + 6) <= hi
+
+            out = []
+            for r in _rows:
+                m = re.search(r"\b(\d{1,4})\b", str(r[best_ci])) if best_ci < len(r) else None
+                n = int(m.group(1)) if m else None
+                if n is not None:
+                    # keep fibres whose tray bucket falls fully within the range
+                    if ((n - 1) // 6) * 6 + 1 >= lo and ((n - 1) // 6) * 6 + 6 <= hi:
+                        out.append(r)
+            return out or _rows[:]  # never return empty silently
 
         full_view = has_alert
         subset = rows[:] if full_view else _filter_rows_by_tray_range(rows, tray_range)
@@ -1961,6 +1997,62 @@ class FibreProcessor:
             computed = max(80, max_content_width)
             self.tree.column(column, width=computed, minwidth=computed, stretch=False, anchor="center")
 
+    @staticmethod
+    def _calculate_tube(fibre_cable, total_fibres, selected_fibre, a_end, b_end, is_fss_cable_func, is_bjl_func):
+        """
+        Centralized logic to determine Tube type (Trunk/Local/Junction/Non-CAN2000).
+        Replaces the duplicate logic inside process_csv and enables it for VMR.
+        """
+        tube = "Non-CAN2000"
+        
+        # Guard against None/Empty
+        fibre_cable = fibre_cable or ""
+        a_end = a_end or ""
+        b_end = b_end or ""
+        selected_fibre = selected_fibre or 0
+        total_fibres = total_fibres or 0
+
+        # Logic matches original process_csv exactly
+        if fibre_cable.startswith("BLS") and total_fibres and total_fibres >= 144:
+            if selected_fibre <= 24:
+                tube = "Trunk"
+            elif selected_fibre > total_fibres - 24:
+                tube = "Local"
+            else:
+                tube = "Junction"
+        else:
+            a_end_type = "AJL" if "AJL" in a_end else "BJL" if "BJL" in a_end else "FJL" if "FJL" in a_end else None
+            b_end_type = "AJL" if "AJL" in b_end else "BJL" if "BJL" in b_end else "FJL" if "FJL" in b_end else None
+
+            if (a_end_type == "BJL" and b_end_type == "BJL") or \
+               (a_end_type == "FJL" and b_end_type == "BJL") or \
+               (a_end_type == "BJL" and b_end_type == "FJL"):
+                if selected_fibre <= 24:
+                    tube = "Trunk"
+                elif total_fibres and selected_fibre > total_fibres - 24:
+                    tube = "Local"
+                else:
+                    tube = "Junction"
+            elif ((a_end_type == "AJL" and b_end_type == "BJL") or
+                  (a_end_type == "BJL" and b_end_type == "AJL")):
+                if total_fibres == 144:
+                    if 49 <= selected_fibre <= 72 or 121 <= selected_fibre <= 144:
+                        tube = "Local"
+                    else:
+                        tube = "Junction"
+                else:
+                    if selected_fibre and total_fibres and selected_fibre > total_fibres - 24:
+                        tube = "Local"
+                    else:
+                        tube = "Junction"
+
+        # FSS exception
+        if is_fss_cable_func(fibre_cable):
+            if not (is_bjl_func(a_end) and is_bjl_func(b_end)):
+                tube = "Non-CAN2000"
+        
+        return tube
+
     def process_csv(self, input_file):
         with open(input_file, 'r', encoding='cp1252') as csvfile:
             reader = csv.reader(csvfile)
@@ -1979,14 +2071,16 @@ class FibreProcessor:
 
         data = data[start_index:]
 
-        # ---------- UPDATED HEADERS: add "IOF" and "DWDM/T_ found" next to "Tube" ----------
+        # ---------- STANDARD HEADERS (Matches VMR Output) ----------
         headers = [
             "Cable#", "A-End", "Fibre Cable", "B-End",
             "Connect/Disconnect", "EO", "Length",
             "Tube", "RS Type", "IOF", "DWDM/T_ found", "Fibre Tray"
         ]
 
-        data[0] = headers
+        # Replace file header row with our standardized list
+        if data:
+            data[0] = headers
 
         processed_data = [headers]
         selected_fibres_list = []
@@ -1994,132 +2088,97 @@ class FibreProcessor:
         i = 1
         while i < len(data):
             row = data[i]
-            if row[0].strip():
-                cable_section = [row]
+            # Ensure row has enough columns to avoid index errors
+            if not row or not row[0].strip():
                 i += 1
-                while i < len(data) and not data[i][0].strip():
+                continue
+
+            cable_section = [row]
+            i += 1
+            # Gather all rows for this cable (until next empty cable#)
+            while i < len(data) and (not data[i] or not data[i][0].strip()):
+                if data[i]: # only append non-empty rows
                     cable_section.append(data[i])
-                    i += 1
+                i += 1
 
-                cable_info = cable_section[0]
-                cable_num = cable_info[0]
-                a_end = cable_info[1]
+            cable_info = cable_section[0]
+            # Pad row if short
+            cable_info += [""] * (8 - len(cable_info))
 
-                # --- existing clean-up for Fibre Cable (keep up to ")") ---
-                fibre_cable_raw = cable_info[2]
-                if ")" in fibre_cable_raw:
-                    fibre_cable = fibre_cable_raw.split(")")[0] + ")"
-                else:
-                    fibre_cable = fibre_cable_raw
+            cable_num = cable_info[0]
+            a_end = cable_info[1]
 
-                b_end = cable_info[3]
+            # --- Clean Fibre Cable ---
+            fibre_cable_raw = cable_info[2]
+            if ")" in fibre_cable_raw:
+                fibre_cable = fibre_cable_raw.split(")")[0] + ")"
+            else:
+                fibre_cable = fibre_cable_raw
 
-                # --- existing clean-up for Connect/Disconnect (remove first char after "t" if not a space) ---
-                connect_disconnect_raw = cable_info[4]
-                if "t" in connect_disconnect_raw:
-                    t_index = connect_disconnect_raw.index("t")
-                    if t_index + 1 < len(connect_disconnect_raw):
-                        if connect_disconnect_raw[t_index + 1] != " ":
-                            connect_disconnect = (
-                                connect_disconnect_raw[:t_index + 1] +
-                                connect_disconnect_raw[t_index + 2:]
-                            )
-                        else:
-                            connect_disconnect = connect_disconnect_raw
-                    else:
-                        connect_disconnect = connect_disconnect_raw
+            b_end = cable_info[3]
+
+            # --- Clean Connect/Disconnect ---
+            connect_disconnect_raw = cable_info[4]
+            if "t" in connect_disconnect_raw:
+                t_index = connect_disconnect_raw.index("t")
+                if t_index + 1 < len(connect_disconnect_raw) and connect_disconnect_raw[t_index + 1] != " ":
+                    connect_disconnect = connect_disconnect_raw[:t_index+1] + connect_disconnect_raw[t_index+2:]
                 else:
                     connect_disconnect = connect_disconnect_raw
-
-                eo = cable_info[5] if len(cable_info) > 5 else ""
-                length = cable_info[6] if len(cable_info) > 6 else ""
-
-                # Extract selected fibre number from "Fibre Cable" text, e.g. "... (#37)"
-                selected_fibre = None
-                m = re.search(r'\(#\s*(\d+)\s*\)', fibre_cable)
-                if m:
-                    selected_fibre = int(m.group(1))
-                else:
-                    selected_fibre = 0  # fallback; keeps code resilient
-
-                selected_fibres_list.append(selected_fibre)
-
-                total_fibres = None
-                if len(cable_section) >= 3:
-                    total_fibres_row = cable_section[2]
-                    if len(total_fibres_row) >= 3:
-                        total_fibres_cell = total_fibres_row[2]
-                        fibres_match = re.search(r'(\d+\.?\d*)m, (\d+)fibres', total_fibres_cell)
-                        if fibres_match:
-                            total_fibres = int(fibres_match.group(2))
-
-                # ---------- CAN2000 tube classification (unchanged rules, FSS override removed) ----------
-                tube = "Non-CAN2000"
-                if fibre_cable.startswith("BLS") and total_fibres and total_fibres >= 144:
-                    if selected_fibre <= 24:
-                        tube = "Trunk"
-                    elif selected_fibre > total_fibres - 24:
-                        tube = "Local"
-                    else:
-                        tube = "Junction"
-                else:
-                    a_end_type = "AJL" if "AJL" in a_end else "BJL" if "BJL" in a_end else "FJL" if "FJL" in a_end else None
-                    b_end_type = "AJL" if "AJL" in b_end else "BJL" if "BJL" in b_end else "FJL" if "FJL" in b_end else None
-
-                    if (a_end_type == "BJL" and b_end_type == "BJL") or (a_end_type == "FJL" and b_end_type == "BJL") or (a_end_type == "BJL" and b_end_type == "FJL"):
-                        if selected_fibre <= 24:
-                            tube = "Trunk"
-                        elif total_fibres and selected_fibre > total_fibres - 24:
-                            tube = "Local"
-                        else:
-                            tube = "Junction"
-                    elif ((a_end_type == "AJL" and b_end_type == "BJL") or
-                          (a_end_type == "BJL" and b_end_type == "AJL")):
-                        if total_fibres == 144:
-                            if 49 <= selected_fibre <= 72 or 121 <= selected_fibre <= 144:
-                                tube = "Local"
-                            else:
-                                tube = "Junction"
-                        else:
-                            if selected_fibre and total_fibres and selected_fibre > total_fibres - 24:
-                                tube = "Local"
-                            else:
-                                tube = "Junction"
-
-                # --- NEW: FSS exception to CAN2000 ---
-                # If the cable is FSS, force Non-CAN2000 UNLESS both ends are BJL splice cases.
-                if self._is_fss_cable(fibre_cable):
-                    if not (self._is_bjl_splice_case(a_end) and self._is_bjl_splice_case(b_end)):
-                        tube = "Non-CAN2000"
-
-
-                # ---------- Fibre Tray calculation (groups of 6) ----------
-                tray_start = ((max(selected_fibre, 1) - 1) // 6) * 6 + 1
-                tray_end = tray_start + 5
-                fibre_tray = f"{tray_start}-{tray_end}"
-
-                # ---------- UPDATED DISPLAY RULE for Fibre Tray ----------
-                # Show tray only if current row OR previous displayed row has non-empty Connect/Disconnect.
-                curr_has_conn = bool(str(connect_disconnect).strip())
-                prev_has_conn = False
-                if len(processed_data) > 1:  # previous displayed row exists
-                    prev_row = processed_data[-1]
-                    # safe access: our rows are always the fixed header schema
-                    prev_has_conn = bool(str(prev_row[4]).strip())
-                display_tray = fibre_tray if (curr_has_conn or prev_has_conn) else ""
-
-                # ---------- include IOF + DWDM/T_ placeholders and Fibre Tray in output row ----------
-                processed_data.append([
-                    cable_num, a_end, fibre_cable, b_end, connect_disconnect, eo, length,
-                    tube, "", "",  # IOF, DWDM/T_ found (to be filled later)
-                    display_tray
-                ])
-
-
             else:
-                i += 1
+                connect_disconnect = connect_disconnect_raw
+
+            eo = cable_info[5]
+            length = cable_info[6]
+
+            # --- Extract Selected Fibre ---
+            selected_fibre = 0
+            m = re.search(r'\(#\s*(\d+)\s*\)', fibre_cable)
+            if m:
+                selected_fibre = int(m.group(1))
+            selected_fibres_list.append(selected_fibre)
+
+            # --- Extract Total Fibres ---
+            total_fibres = None
+            if len(cable_section) >= 3:
+                total_fibres_row = cable_section[2]
+                if len(total_fibres_row) >= 3:
+                    total_fibres_cell = total_fibres_row[2]
+                    fibres_match = re.search(r'(\d+\.?\d*)m, (\d+)fibres', total_fibres_cell)
+                    if fibres_match:
+                        total_fibres = int(fibres_match.group(2))
+
+            # ---------- TUBE CALCULATION (Centralized Logic) ----------
+            tube = self._calculate_tube(
+                fibre_cable, total_fibres, selected_fibre, a_end, b_end,
+                self._is_fss_cable, self._is_bjl_splice_case
+            )
+
+            # ---------- Fibre Tray Calculation ----------
+            tray_start = ((max(selected_fibre, 1) - 1) // 6) * 6 + 1
+            tray_end = tray_start + 5
+            fibre_tray = f"{tray_start}-{tray_end}"
+
+            # ---------- Tray Display Logic ----------
+            # Show tray only if current row OR previous displayed row has non-empty Connect/Disconnect.
+            curr_has_conn = bool(str(connect_disconnect).strip())
+            prev_has_conn = False
+            if len(processed_data) > 1:
+                prev_row = processed_data[-1]
+                # Index 4 is Connect/Disconnect in our standardized header
+                prev_has_conn = bool(str(prev_row[4]).strip())
+            
+            display_tray = fibre_tray if (curr_has_conn or prev_has_conn) else ""
+
+            # Append finalized row
+            processed_data.append([
+                cable_num, a_end, fibre_cable, b_end, connect_disconnect, eo, length,
+                tube, "", "", "",  # RS Type, IOF, DWDM/T_ placeholders
+                display_tray
+            ])
 
         return processed_data, selected_fibres_list
+    
 # --- NEW: add inside class FibreProcessor (e.g., after process_csv) ---
 
     def _parse_fibretrace_table(self, html_text: str):
@@ -2286,13 +2345,65 @@ class FibreProcessor:
         return any(tag in up for tag in ["_AP", "_MA", "_SB", "_SM"])
 
 
+    def _extract_js_trace_data(self, html_content):
+        """
+        Parses VMR HTML content by extracting the 'var trace_data' JS variable.
+        This is required for crawled HTML files where the table is rendered dynamically.
+        """
+        extracted_data = []
+        try:
+            # Match the JS array: var trace_data = [[...]];
+            pattern = r"var\s+trace_data\s*=\s*(\[\[.*?\]\]);"
+            match = re.search(pattern, html_content, re.DOTALL)
+            
+            if match:
+                json_str = match.group(1)
+                try:
+                    rows = json.loads(json_str)
+                except json.JSONDecodeError:
+                    return []
+
+                for row in rows:
+                    if not row or len(row) < 7:
+                        continue
+                    
+                    # Map JS array indices to the dictionary keys expected by _normalize_vmr_rows
+                    # Index mapping based on VMR standard trace_data structure:
+                    # 1: Cable Name, 2: A-End, 3: B-End, 8: C/D Status, 9: EO, 6: Length
+                    item = {}
+                    
+                    # Safe index access helper
+                    def get_idx(arr, i): return str(arr[i]) if i < len(arr) and arr[i] is not None else ""
+
+                    item["Cable#"] = get_idx(row, 0)
+                    item["Fibre Cable"] = get_idx(row, 1)
+                    item["A-End"] = get_idx(row, 2)
+                    item["B-End"] = get_idx(row, 3)
+                    item["Length"] = get_idx(row, 6)
+                    item["Connect/Disconnect"] = get_idx(row, 8) 
+                    item["EO"] = get_idx(row, 9)
+
+                    # Also extract metrics from the Name for Tube/Core calculation
+                    meta = self._extract_from_name(item["Fibre Cable"])
+                    item["_name_length_m"] = meta["length_m"]
+                    item["_name_total_fib"] = meta["total_fibres"]
+                    item["_name_wk"] = meta["wk"]
+                    item["_name_sp"] = meta["sp"]
+
+                    extracted_data.append(item)
+            
+            return extracted_data
+
+        except Exception as e:
+            self.log(f"JS Extraction Error: {e}")
+            return []
+
     # --- REPLACE your current process_vmr() with this version ---
 
     def process_vmr(self, vmr_id: str):
         """
         Crawl FibreTrace for `vmr_id`, parse Fibre Trace Summary to infer path name/type,
-        parse Fibre Trace Details to rows, normalize, and return.
-        Also sets self.fibre_type automatically based on the summary 'Name' (L_/J_/T_).
+        parse Fibre Trace Details (JS or Table) to rows, normalize, and return.
         """
         if not re.fullmatch(r"\d+", (vmr_id or "").strip()):
             raise ValueError("VMR ID must be numeric.")
@@ -2302,22 +2413,27 @@ class FibreProcessor:
         with open(html_path, "r", encoding="utf-8") as f:
             html = f.read()
 
-        # --- NEW: infer fibre type from the Fibre Trace Summary 'Name'
+        # --- Infer fibre type from the Fibre Trace Summary 'Name' ---
         summary_name = self._parse_summary_name(html)
         inferred_type = self._infer_fibre_type_from_summary_name(summary_name)
-        # Set fibre_type var so downstream commentary/tube mismatch logic can still read it
         self.fibre_type.set(inferred_type)
 
-        # Parse the main details table
-        headers, rows = self._parse_fibretrace_table(html)
-        if not headers or not rows:
-            raise RuntimeError("Could not find a valid FibreTrace table in the VMR page.")
+        # --- STRATEGY 1: Try extracting from JavaScript (for crawled/raw HTML) ---
+        mapped = self._extract_js_trace_data(html)
 
-        # Map & normalize (uses Name parsing for length/fibres as previously wired)
-        mapped = [self._map_html_row(headers, r) for r in rows]
+        # --- STRATEGY 2: Fallback to Table Parsing (for rendered views) ---
+        if not mapped:
+            headers, rows = self._parse_fibretrace_table(html)
+            if headers and rows:
+                mapped = [self._map_html_row(headers, r) for r in rows]
+        
+        if not mapped:
+            raise RuntimeError("Could not find valid FibreTrace data (JS or Table) in the VMR page.")
+
+        # Normalize the dictionary list into final rows
         processed_data, selected_fibres = self._normalize_vmr_rows(mapped)
 
-        # Since Source=VMR, ensure CSV-only controls are visually hidden (defensive)
+        # Since Source=VMR, ensure CSV-only controls are visually hidden
         try:
             self.type_frame.grid_remove()
         except Exception:
@@ -2328,9 +2444,8 @@ class FibreProcessor:
 
     def _normalize_vmr_rows(self, basic_rows):
         """
-        Convert the minimal norm rows to exactly what process_csv() outputs:
-        headers = ["Cable#", "A-End", "Fibre Cable", "B-End", "Connect/Disconnect", "EO", "Length", "Tube", "Fibre Tray"]
-        We now also honor parsed values from 'Name' (length, fibres, WK/SP) when available.
+        Convert the minimal norm rows to exactly what process_csv() outputs.
+        Now calculates 'Tube' using the shared helper logic.
         """
         headers = [
             "Cable#", "A-End", "Fibre Cable", "B-End",
@@ -2340,37 +2455,8 @@ class FibreProcessor:
         out = [headers]
         selected = []
 
-        # NOTE: we stashed the meta on each mapped dict; to reach it here, we’ll
-        #       temporarily carry those dicts instead of plain strings.
-        #       So basic_rows should be built from mapped dicts (we already do this in process_vmr()).
-        #       If you've kept basic_rows as literal strings, keep reading—we’ll seamlessly handle both.
-
-        # If caller has passed the enriched dicts (preferred path):
-        if basic_rows and isinstance(basic_rows[0], list) and basic_rows[0] and basic_rows[0][0] == "Cable#":
-            # current (older) path with simple lists -> keep behavior
-            for row in basic_rows[1:]:
-                cable_num, a_end, fibre_cable_raw, b_end, conn, eo, length = (row + [""]*7)[:7]
-                fibre_cable = fibre_cable_raw.split(")")[0] + ")" if ")" in fibre_cable_raw else fibre_cable_raw
-
-                m = re.search(r'\(#\s*(\d+)\s*\)', fibre_cable)
-                sel = int(m.group(1)) if m else 0
-                selected.append(sel)
-
-                tube = "Non-CAN2000"
-                tray = ""
-                if str(conn).strip() and sel > 0:
-                    start = ((sel - 1)//6)*6 + 1
-                    end = start + 5
-                    tray = f"{start}-{end}"
-
-                out.append([cable_num, a_end, fibre_cable, b_end, conn, eo, length, tube, tray])
-
-            return out, selected
-
-        # NEW preferred path: process_vmr() will pass the mapped dicts directly
-        # (so we can use the parsed meta from Name).
         for i, m in enumerate(basic_rows, start=1):
-            # m is a mapped dict produced by _map_html_row()
+            # m is the dictionary from _map_html_row
             a_end       = m.get("A-End", "")
             fibre_raw   = m.get("Fibre Cable", "") or m.get("Name", "")
             b_end       = m.get("B-End", "")
@@ -2378,659 +2464,354 @@ class FibreProcessor:
             eo          = m.get("EO", "")
             length_html = (m.get("Length", "") or "").strip()
 
-            # Preferred cable text
+            # Clean cable name
             fibre_cable = fibre_raw.split(")")[0] + ")" if ")" in fibre_raw else fibre_raw
 
-            # Selected fibre number (if present)
+            # Extract selected fibre
             mm = re.search(r'\(#\s*(\d+)\s*\)', fibre_cable)
             sel = int(mm.group(1)) if mm else 0
             selected.append(sel)
 
-            # Decide Length: if HTML Length missing, use parsed Name length
+            # Length fallback
             length_val = length_html
             if not length_val:
                 name_len = m.get("_name_length_m")
                 if isinstance(name_len, (int, float)):
-                    # format similar to CSV (e.g., '890.00m')
                     length_val = f"{name_len:.2f}m"
 
-            # Reserve these if you later want to compute tube or commentary:
+            # --- NEW: Calculate Tube Type ---
             total_fib = m.get("_name_total_fib")
-            wk_fib    = m.get("_name_wk")
-            sp_fib    = m.get("_name_sp")
-            # (No change to tube rules here to keep this minimal and safe.)
-            tube = "Non-CAN2000"
+            # Fallback: if total_fib not parsed from Name, try to guess from mapped values?
+            # Usually VMR "Name" column has "NNN fibres" text which _extract_from_name catches.
+            
+            tube = self._calculate_tube(
+                fibre_cable, total_fib, sel, a_end, b_end,
+                self._is_fss_cable, self._is_bjl_splice_case
+            )
 
+            # Calculate Tray (will be masked by UI loop if needed)
             tray = ""
             if str(conn).strip() and sel > 0:
                 start = ((sel - 1)//6)*6 + 1
                 end = start + 5
                 tray = f"{start}-{end}"
 
-            out.append([str(i), a_end, fibre_cable, b_end, conn, eo, length_val, tube, tray])
+            out.append([str(i), a_end, fibre_cable, b_end, conn, eo, length_val, tube, "", "", "", tray])
 
         return out, selected
-
     def process_data(self):
-        """
-        Process button:
-        CSV  → infer Fibre Type from the CSV's Fibre Trace Summary Name (L_/J_/T_) and parse via process_csv(...)
-        VMR  → crawl FibreTrace HTML, infer Fibre Type from Summary Name (L_/J_/T_), convert Details HTML → CSV-like,
-                then reuse process_csv(...).
-        Post-processing (parity, cross-section crawl, commentary, tagging, UI insert) remains identical.
-        """
-        import re, sqlite3, traceback, requests
+        import re, sqlite3, traceback, requests, time
         from tkinter import messagebox
 
+        self.log("Starting processing...")
         src = (self.source_var.get() or "CSV").upper()
 
         try:
+            # =========================================================
+            # 1. LOAD DATA (CSV or VMR)
+            # =========================================================
             if src == "CSV":
-                # ---- CSV path ----
                 input_file = (self.input_entry.get() or "").strip()
                 if not input_file:
                     messagebox.showerror("Error", "Please select an input CSV file first.")
                     return
 
-                # Infer fibre type from CSV's Fibre Trace Summary 'Name' (L_/J_/T_)
+                self.log(f"Reading CSV: {input_file}")
                 ft = _infer_ft_from_csv_summary_name(input_file)
                 if ft:
                     self.fibre_type.set(ft)
+                    self.log(f"Inferred Fibre Type from CSV: {ft}")
 
-                # Parse with existing CSV logic
                 processed_data, selected_fibres = self.process_csv(input_file)
 
             else:
-                # ---- VMR path ----
+                # VMR Source
                 vmr_id = (self.vmr_id_entry.get() or "").strip()
                 if not re.fullmatch(r"\d+", vmr_id):
                     messagebox.showerror("Error", "Please enter a numeric VMR Job/WO ID.")
                     return
 
-                # Crawl FibreTrace HTML (saved next to exe/py so double-click viewer can reuse)
-                html_path = _vmr_crawl_fibretrace(vmr_id)
-                with open(html_path, "r", encoding="utf-8", errors="ignore") as fh:
-                    html_text = fh.read()
+                self.log(f"Connecting to VMR for ID: {vmr_id}")
+                processed_data, selected_fibres = self.process_vmr(vmr_id)
+                self.log("VMR data parsed successfully.")
 
-                # Fibre Type from Fibre Trace Summary → Name (prefix L_/J_/T_)
-                auto_ft, _path_name = _derive_ft_from_summary(html_text)
-                if auto_ft:
-                    self.fibre_type.set(auto_ft)
-
-                # Convert the Details table HTML → CSV-like (EO strict 'EOxxxxxx', Length 'xx.xx')
-                tmp_csv = _vmr_html_to_csv_like_tempfile(html_text)
-
-                # Reuse existing CSV parser end-to-end
-                processed_data, selected_fibres = self.process_csv(tmp_csv)
-
-            # ===== 1) Majority parity (unchanged) =====
-            even = sum(1 for n in selected_fibres if isinstance(n, int) and n > 0 and n % 2 == 0)
-            odd  = sum(1 for n in selected_fibres if isinstance(n, int) and n > 0 and n % 2 == 1)
-            majority_parity = "even" if even > odd else ("odd" if odd > even else None)
-
-            # ===== 2) Clear UI table =====
+            # =========================================================
+            # 2. CLEAR UI & CACHE
+            # =========================================================
             for iid in self.tree.get_children():
                 self.tree.delete(iid)
             self.row_meta = {}
 
-            # Reset cross-section cache
+            # Reset cache
             try:
                 self.cs_cache.clear()
-                self.cs_cache = CrossSectionCache()
-            except Exception:
-                pass
+            except Exception as e:
+                self.log(f"Warning clearing cache: {e}")
+            self.cs_cache = CrossSectionCache()
 
-            # ===== 3) Build the crawl list ONLY for rows that display a Fibre Tray =====
-            segid_cache = {}
-            seg_ids_needed = set()
+            # =========================================================
+            # 3. BUILD CRAWL LIST
+            # =========================================================
+            to_crawl = []
             seg_by_row_index = {}
             tray_by_row_index = {}
-            to_crawl = []
+            segid_cache = {}
+            seg_ids_needed = set()
 
-            # figure out column positions once
-            pd_headers = [h.strip() for h in processed_data[0]] if processed_data and processed_data[0] else []
-            # make sure the UI has a "Fibre Tray" column
-            try:
-                tray_col = pd_headers.index("Fibre Tray")
-            except ValueError:
-                tray_col = len(pd_headers)
-                pd_headers.append("Fibre Tray")
-                processed_data[0] = pd_headers
-                # make every row at least as wide as the header and add an empty tray cell
-                for k in range(1, len(processed_data)):
-                    processed_data[k] = _ensure_width(processed_data[k], len(pd_headers))
-                    processed_data[k][tray_col] = ""
-
-
-            # After pd_headers and tray_col are defined
-            def _ensure_width(row, target_len):
-                # pad the row so it has at least target_len cells
-                if row is None:
-                    return [""] * target_len
-                if len(row) < target_len:
-                    row += [""] * (target_len - len(row))
-                return row
-
-
-            # other columns we need
-            try:
-                name_col = pd_headers.index("Fibre Cable")
-            except ValueError:
-                name_col = None
-
-            try:
-                cd_col = pd_headers.index("Connect/Disconnect")
-            except ValueError:
-                cd_col = None
-
-            # helper: tray range from the "(#n)" selector in the cable name
-            def _fibre_num_from_row(row) -> int | None:
-                # 1) Try to read a fibre number from Connect/Disconnect (first n:n pair → take right side)
-                cd = (row[cd_col] if cd_col is not None and cd_col < len(row) else "") or ""
-                m = re.search(r":\s*(\d+)", cd)
-                if m:
-                    try:
-                        return int(m.group(1))
-                    except Exception:
-                        pass
-
-                # 2) Fallback: from "Fibre Cable" text "(#n)"
-                cable_name = row[name_col] if (name_col is not None and len(row) > name_col) else ""
-                m2 = re.search(r'\(#\s*(\d+)\s*\)', str(cable_name or ""))
-                if m2:
-                    try:
-                        return int(m2.group(1))
-                    except Exception:
-                        pass
-
-                return None
-
-            def _tray_from_fibre_num(n: int) -> str:
-                if not isinstance(n, int) or n <= 0:
-                    return ""
-                start = ((n - 1) // 6) * 6 + 1
-                end = start + 5
-                return f"{start}-{end}"
-
-
-            show_next = False
-            last_tray = ""
-
-            # (add this line)
-            self.show_next_tray = False  # reset forward-peek before rendering rows
-            
-            for i in range(1, len(processed_data)):
-                row = processed_data[i]
-                # make sure row is long enough so we can safely set row[tray_col]
-                row = _ensure_width(row, len(pd_headers))
-                processed_data[i] = row  # keep the padded row
-
-                curr_cd = (row[cd_col] if cd_col is not None and cd_col < len(row) else "")
-                curr_cd = (curr_cd or "").strip()
-
-                # decide display on this row: show when this row has C/D, or it's the immediate next after a C/D row
-                has_cd = bool(curr_cd)
-                if has_cd or show_next:
-                    n = _fibre_num_from_row(row)
-                    row[tray_col] = _tray_from_fibre_num(n) if n else ""
-                    # arm forward-peek only if *this* row has C/D
-                    show_next = has_cd
-                else:
-                    row[tray_col] = ""
-                    show_next = False
-
-            # STRICT: only treat tray as present if the UI column "Fibre Tray" has a non-empty value
-            def _tray_from_row(row):
-                row = _ensure_width(row, len(pd_headers))
-                if tray_col is not None and row and len(row) > tray_col:
-                    t = (row[tray_col] or "").strip()
-                    if t:
-                        return t
-                return ""
-
-            def _segid_for_cable(cable_name):
-                key = (cable_name or "").strip()
-                if "(" in key:
-                    key = key.split("(")[0].strip()
-                if key in segid_cache:
-                    return segid_cache[key]
+            # Robust column indexing
+            pd_headers = processed_data[0] if processed_data else []
+            def _idx(col, default=None):
                 try:
-                    conn_tmp = sqlite3.connect(self.db_path)
-                    cur = conn_tmp.cursor()
-                    cd = self.fetch_cable_data(cur, key)
-                    conn_tmp.close()
-                except Exception:
-                    cd = None
-                segid = (cd or {}).get("SEGMENT_ID", "") if cd else ""
-                segid_cache[key] = segid
-                return segid
+                    return pd_headers.index(col)
+                except ValueError:
+                    return default
 
-            # walk rows and collect ONLY those with a non-empty tray
+            name_col = _idx("Fibre Cable", 2)
+            tray_col = _idx("Fibre Tray")
+
+            # Helper to derive tray from selected fibre number
+            def _derive_tray(row, n_col):
+                if n_col is not None and len(row) > n_col:
+                    txt = row[n_col]
+                    m = re.search(r'\(#\s*(\d+)\s*\)', str(txt))
+                    if m:
+                        sel = int(m.group(1))
+                        if sel > 0:
+                            s = ((sel - 1) // 6) * 6 + 1
+                            return f"{s}-{s+5}"
+                return ""
+            
+            # --- Check Database Availability BEFORE Loop ---
+            db_available = False
+            if os.path.exists(self.db_path):
+                try:
+                    conn_check = sqlite3.connect(self.db_path)
+                    cur_check = conn_check.cursor()
+                    cur_check.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='Cable'")
+                    if cur_check.fetchone()[0] > 0:
+                        db_available = True
+                    else:
+                        self.log("ERROR: Database exists but table 'Cable' is missing.")
+                    conn_check.close()
+                except Exception as e:
+                    self.log(f"ERROR: Database check failed: {e}")
+            else:
+                self.log("WARNING: database.db not found. Run 'Fibre Database Update' tab.")
+
+            # Build crawl list
             for i in range(1, len(processed_data)):
                 row = processed_data[i]
-                if name_col is None or not row or len(row) <= name_col:
+                if name_col is None or len(row) <= name_col:
                     continue
 
-                fibre_tray = _tray_from_row(row)
-                if not fibre_tray:
-                    continue  # Skip rows without visible Fibre Tray
+                t_str = ""
+                if tray_col is not None and tray_col < len(row):
+                    t_str = row[tray_col]
+                if not t_str:
+                    t_str = _derive_tray(row, name_col)
+                
+                if not t_str:
+                    continue
 
+                # Only try to fetch Segment ID if DB is available
                 cable_name = row[name_col]
-                seg_id = _segid_for_cable(cable_name)
-                if not seg_id:
-                    continue
+                key = cable_name.split("(")[0].strip()
+                seg_id = ""
 
-                seg_by_row_index[i] = seg_id
-                tray_by_row_index[i] = fibre_tray
-
-                if seg_id not in seg_ids_needed:
-                    seg_ids_needed.add(seg_id)
-                    to_crawl.append((seg_id, VMR_Cable_URL + seg_id))
-
-
-
-
-            # ===== 4) Optional cross-section crawling (Connect VMR) =====
-            if self.crawl_enabled.get() and to_crawl:
-                self.progress["maximum"] = len(to_crawl)
-                self.progress["value"] = 0
-                self.progress_label.configure(text="Crawling Cross Sections…")
-                self.progress_frame.grid(row=4, column=0, sticky="w", padx=6, pady=(4, 2))
-                self.parent_frame.update_idletasks()
-
-                for idx, (seg_id, url) in enumerate(to_crawl, start=1):
+                if key in segid_cache:
+                    seg_id = segid_cache[key]
+                elif db_available:
                     try:
-                        resp = requests.get(
-                            url,
-                            headers={"User-Agent": "Mozilla/5.0 (FibreAssist/1.0)"},
-                            timeout=30,
-                            verify=True
-                        )
-                        resp.raise_for_status()
-                        headers, rows = self.cs_cache.put_html(seg_id, resp.text)
+                        conn_tmp = sqlite3.connect(self.db_path)
+                        cur = conn_tmp.cursor()
+                        cd = self.fetch_cable_data(cur, key)
+                        conn_tmp.close()
+                        if cd: seg_id = cd.get("SEGMENT_ID", "")
+                    except Exception as e:
+                        self.log(f"DB Error fetching cable {key}: {e}")
+                    segid_cache[key] = seg_id
+                
+                if seg_id:
+                    seg_by_row_index[i] = seg_id
+                    tray_by_row_index[i] = t_str
+                    if seg_id not in seg_ids_needed:
+                        seg_ids_needed.add(seg_id)
+                        to_crawl.append((seg_id, VMR_Cable_URL + seg_id))
 
-                        # precompute alert flags per tray for fast UI labeling
-                        for row_idx, _seg in seg_by_row_index.items():
-                            if _seg != seg_id:
-                                continue
-                            tray = (tray_by_row_index.get(row_idx, "") or "").strip()
-                            if not tray:
-                                continue
-                            subset = filter_rows_by_tray_range(rows, tray)
-                            flag = rows_have_alert(headers, subset)
-                            self.cs_cache.set_tray_alert(seg_id, tray, flag)
+            # =========================================================
+            # 4. PERFORM CRAWL
+            # =========================================================
+            if self.crawl_enabled.get():
+                if not db_available:
+                    self.log("Skipping VMR Cross-Section crawl because Database is missing (cannot map Cable Name -> Segment ID).")
+                elif not to_crawl:
+                    self.log("Connect VMR is ON, but no valid Segment IDs found to crawl.")
+                else:
+                    self.log(f"Crawling {len(to_crawl)} cross-sections...")
+                    self.progress["maximum"] = len(to_crawl)
+                    self.progress["value"] = 0
+                    self.progress_frame.grid(row=4, column=0, sticky="w", padx=6, pady=(4, 2))
+                    self.parent_frame.update_idletasks()
 
+                    for idx, (seg_id, url) in enumerate(to_crawl, start=1):
+                        try:
+                            self.log(f"Crawling {idx}/{len(to_crawl)}: {seg_id}")
+                            resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=15, verify=True)
+                            if resp.status_code == 200:
+                                headers, rows = self.cs_cache.put_html(seg_id, resp.text)
+                                # Pre-calculate alerts
+                                for r_idx, s_id in seg_by_row_index.items():
+                                    if s_id == seg_id:
+                                        t = tray_by_row_index.get(r_idx, "")
+                                        if t:
+                                            sub = filter_rows_by_tray_range(rows, t)
+                                            flag = rows_have_alert(headers, sub)
+                                            self.cs_cache.set_tray_alert(seg_id, t, flag)
+                            else:
+                                self.log(f"Failed {seg_id}: HTTP {resp.status_code}")
+                        except Exception as e:
+                            self.log(f"Error crawling {seg_id}: {e}")
+                        finally:
+                            self.progress["value"] = idx
+                            self.parent_frame.update_idletasks()
+                    
+                    self.progress_frame.grid_remove()
+                    self.log("Crawl complete.")
 
-                    except Exception:
-                        # swallow crawl errors per-segment; continue UI update
-                        pass
-                    finally:
-                        self.progress["value"] = idx
-                        self.parent_frame.update_idletasks()
-
-                self.progress_frame.grid_remove()
-
-            # ===== 5) Populate UI table + commentary & tags =====
-            columns = self.tree["columns"]
-            try:
-                commentary_idx = columns.index("Commentary")
-            except ValueError:
-                commentary_idx = len(columns) - 1
-
-            # NEW: indexes for our added columns
-            try:
-                iof_idx = columns.index("IOF")
-            except ValueError:
-                iof_idx = None
-            try:
-                dwdm_idx = columns.index("DWDM/T_ found")
-            except ValueError:
-                dwdm_idx = None
-
+            # =========================================================
+            # 5. POPULATE UI
+            # =========================================================
             conn = None
             cursor = None
-            try:
+            if db_available:
                 conn = sqlite3.connect(self.db_path)
                 cursor = conn.cursor()
-            except Exception:
-                conn = None
-                cursor = None
+
+            # ... [Indices Setup remains the same] ...
+            src_a     = _idx("A-End", 1)
+            src_cable = _idx("Fibre Cable", 2)
+            src_b     = _idx("B-End", 3)
+            src_cd    = _idx("Connect/Disconnect", 4)
+            src_eo    = _idx("EO", 5)
+            src_len   = _idx("Length", 6)
+            src_tube  = _idx("Tube", 7)
+            src_tray  = _idx("Fibre Tray")
+
+            cols = self.tree["columns"]
+            try: ui_rs   = cols.index("RS Type")
+            except: ui_rs = None
+            try: ui_iof  = cols.index("IOF")
+            except: ui_iof = None
+            try: ui_dwdm = cols.index("DWDM/T_ found")
+            except: ui_dwdm = None
+            try: ui_comm = cols.index("Commentary")
+            except: ui_comm = len(cols)-1
+
+            self.show_next_tray = False 
 
             for i in range(1, len(processed_data)):
                 row = processed_data[i]
+                def _v(idx): return row[idx] if idx is not None and idx < len(row) else ""
+                
+                val_cable = _v(src_cable)
+                val_cd    = _v(src_cd)
+                val_tray  = _v(src_tray)
+                real_tray = tray_by_row_index.get(i, val_tray)
+                
+                allow_tray = bool(val_cd.strip()) or self.show_next_tray
+                display_tray = real_tray if allow_tray else ""
+                self.show_next_tray = bool(val_cd.strip())
 
-                # Build the row for display (your code may already do this)
-                # === REPLACE START: build display row by header name (no hard indices) ===
-                pd_headers = processed_data[0] if processed_data and processed_data[0] else []
-
-                def _idx(name, default=None):
-                    try:
-                        return pd_headers.index(name)
-                    except ValueError:
-                        return default
-
-                def _val(r, i):
-                    if i is None:
-                        return ""
-                    return r[i] if (0 <= i < len(r)) else ""
-
-                a_end_idx      = _idx("A-End", 1)
-                fibre_idx      = _idx("Fibre Cable", 2)
-                b_end_idx      = _idx("B-End", 3)
-                cd_idx         = _idx("Connect/Disconnect", 4)
-                eo_idx         = _idx("EO", 5)
-                length_idx     = _idx("Length", 6)
-                tube_idx       = _idx("Tube", 7)
-                rs_type_idx_pd = _idx("RS Type")              # may be None if header not present
-                iof_idx_pd     = _idx("IOF")                  # may be None if header not present
-                dwdm_idx_pd    = _idx("DWDM/T_ found")        # may be None if header not present
-                tray_idx_pd    = _idx("Fibre Tray")           # may be None if header not present
-
-                display_row = [
-                    _val(row, a_end_idx),          # A-End
-                    _val(row, fibre_idx),          # Fibre Cable
-                    _val(row, b_end_idx),          # B-End
-                    _val(row, cd_idx),             # Connect/Disconnect
-                    _val(row, eo_idx),             # EO
-                    _val(row, length_idx),         # Length
-                    _val(row, tube_idx),           # Tube
-                    _val(row, rs_type_idx_pd),     # RS Type (placeholder; will be filled if C/D present)
-                    _val(row, iof_idx_pd),         # IOF (placeholder; will be filled later)
-                    _val(row, dwdm_idx_pd),        # DWDM/T_ found (placeholder; will be filled later)
-                    _val(row, tray_idx_pd),        # Fibre Tray
-                    ""                             # Commentary
+                values = [
+                    _v(src_a), val_cable, _v(src_b), val_cd, _v(src_eo), _v(src_len),
+                    _v(src_tube), "", "", "", display_tray, "" 
                 ]
-                item_id = self.tree.insert("", "end", values=display_row)
-
-                # Stash any per-row metadata
-                seg_id = seg_by_row_index.get(i, "")
-                self.row_meta[item_id] = {"segment_id": seg_id}
-
-                # Indices for writing back into the Treeview (UI) later in this loop
-                columns = self.tree["columns"]
-                try:
-                    commentary_idx = columns.index("Commentary")
-                except ValueError:
-                    commentary_idx = len(columns) - 1
-                try:
-                    iof_idx = columns.index("IOF")
-                except ValueError:
-                    iof_idx = None
-                try:
-                    dwdm_idx = columns.index("DWDM/T_ found")
-                except ValueError:
-                    dwdm_idx = None
-                try:
-                    rs_type_ui_idx = columns.index("RS Type")
-                except ValueError:
-                    rs_type_ui_idx = None
-
-                # Normalized values for subsequent logic
-                fibre_cable  = _val(row, fibre_idx)
-                a_end        = _val(row, a_end_idx)
-                b_end        = _val(row, b_end_idx)
-                connect_disc = _val(row, cd_idx)
-                tube_value   = _val(row, tube_idx)
-                # === REPLACE END ===
-
+                item_id = self.tree.insert("", "end", values=values)
+                self.row_meta[item_id] = {"segment_id": seg_by_row_index.get(i, "")}
 
                 tags = []
+                commentary_parts = []
 
-                # === DWDM/T_ label based on cached cross-section alert ===
-                # Look up Fibre Tray by header name (resilient to column order)
-                pd_headers = processed_data[0] if processed_data and processed_data[0] else []
-                try:
-                    tray_col_pd = pd_headers.index("Fibre Tray")
-                except ValueError:
-                    tray_col_pd = len(row) - 2  # safe fallback
+                # --- 1. DWDM/T_ Check ---
+                seg_id = seg_by_row_index.get(i, "")
+                if seg_id and real_tray and self.cs_cache.tray_has_alert(seg_id, real_tray):
+                    if ui_dwdm is not None: self.tree.set(item_id, column="DWDM/T_ found", value="Y")
+                    commentary_parts.append("DWDM/Trunk Circuits found, DO NO USE. Ask IPNE Fibre Planning.")
+                    tags.append("cs_alert")
 
-                # --- FORCE CURRENT-ROW OVERRIDE + PREFILL NEXT, THEN RENDER ---
-                # If current row has Connect/Disconnect, compute its own tray and OVERWRITE any prefill
-                if curr_cd:
-                    # _tray_from_row(row) must return a "N-M" tray range for THIS row's fibre
-                    tray_by_row_index[i] = _tray_from_row(row) or ""
-
-                # If current has C/D, prefill the NEXT row's tray with the same range (rule: show current + next)
-                if curr_cd and i + 1 < len(processed_data):
-                    if tray_by_row_index.get(i):
-                        tray_by_row_index[i + 1] = tray_by_row_index[i]
-
-                # Final value to render: only from our mapping; NEVER fall back to the pandas cell
-                tray_str = tray_by_row_index.get(i, "")
-
-
-                # ---- Enforce DISPLAY rule for Fibre Tray column (forward-peek) ----
-                # If current row has non-empty Connect/Disconnect, show tray for current + next row.
-                def _get_cd_from_src_row(r):
-                    try:
-                        cd_idx = pd_headers.index("Connect/Disconnect")
-                    except ValueError:
-                        cd_idx = 4  # fallback
-                    return (str(_val(r, cd_idx) or "").strip())
-
-                curr_cd = _get_cd_from_src_row(row)
-
-                # Decide whether to show for this row
-                allow_tray = bool(curr_cd) or bool(self.show_next_tray)
-                display_tray = tray_str if allow_tray else ""
-
-                # Update the UI cell
-                try:
-                    tray_ui_idx = columns.index("Fibre Tray")
-                except ValueError:
-                    tray_ui_idx = None
-                if tray_ui_idx is not None:
-                    current_vals = list(self.tree.item(item_id, "values"))
-                    while len(current_vals) <= tray_ui_idx:
-                        current_vals.append("")
-                    current_vals[tray_ui_idx] = display_tray
-                    self.tree.item(item_id, values=tuple(current_vals))
-
-                # Arm "show next" flag if current has C/D
-                self.show_next_tray = bool(curr_cd)
-
-
-                # >>> NEW: actually put display_tray into the UI cell <<<
-                try:
-                    tray_ui_idx = columns.index("Fibre Tray")
-                except ValueError:
-                    tray_ui_idx = None
-                if tray_ui_idx is not None:
-                    current_vals = list(self.tree.item(item_id, "values"))
-                    while len(current_vals) <= tray_ui_idx:
-                        current_vals.append("")
-                    current_vals[tray_ui_idx] = display_tray
-                    self.tree.item(item_id, values=tuple(current_vals))
-
-                has_trunk = False
-                if seg_id and tray_str and self.cs_cache:
-                    try:
-                        has_trunk = bool(self.cs_cache.tray_has_alert(seg_id, tray_str))
-                    except Exception:
-                        has_trunk = False
-
-                # Write "Y" or "" to the "DWDM/T_ found" column of the UI row
-                if dwdm_idx is not None:
-                    current_vals = list(self.tree.item(item_id, "values"))
-                    while len(current_vals) <= dwdm_idx:
-                        current_vals.append("")
-                    current_vals[dwdm_idx] = "Y" if has_trunk else ""
-                    self.tree.item(item_id, values=tuple(current_vals))
-                else:
-                    # Fallback for older builds that still rely on tags
-                    if has_trunk:
-                        tags.append("cs_alert")
-
-                # If DWDM/T_ is found, also append the exact warning to Commentary
-                if has_trunk:
-                    current_vals = list(self.tree.item(item_id, "values"))
-                    note = "DWDM/Trunk Circuits found, DO NO USE, if can't avoid, ask permission from IPNE Fibre Planning Dropbox."
-                    existing_comm = (current_vals[commentary_idx] if commentary_idx < len(current_vals) else "").strip()
-                    new_comm = f"{existing_comm} | {note}" if existing_comm else note
-                    while len(current_vals) <= commentary_idx:
-                        current_vals.append("")
-                    current_vals[commentary_idx] = new_comm
-                    self.tree.item(item_id, values=tuple(current_vals))
-
-                # (We will fill IOF after DB lookup below)
-
-
-
-                # Commentary from DB lookups (unchanged)
+                # --- 2. Database Checks (Only if DB available) ---
                 if cursor:
-                    commentary_parts = []
-                    cable_num   = row[0]
-                    a_end       = row[1]
-                    fibre_cable = row[2].split("(")[0] if "(" in row[2] else row[2]
-                    b_end       = row[3]
-                    connect_disc= row[4]
-
-                    # Cable-level commentary
+                    clean_cable = val_cable.split("(")[0].strip()
                     try:
-                        cable_data = self.fetch_cable_data(cursor, fibre_cable)
-                    except Exception:
+                        cable_data = self.fetch_cable_data(cursor, clean_cable)
+                    except Exception as e:
+                        # Log once if verbose, else silent
                         cable_data = None
+                    
+                    if cable_data:
+                        is_iof = (str(cable_data.get('IOF', '')).strip().upper() == "Y") or self._name_marks_iof(clean_cable)
+                        if is_iof and ui_iof is not None:
+                             self.tree.set(item_id, column="IOF", value="Y")
+                             commentary_parts.append("Cable is IOF, ask permission.")
 
-                    if cable_data is not None:
-                        name_upper     = (cable_data.get('NAME') or "").upper()
-                        status         = (cable_data.get('CABLE_STATUS') or "")
-                        owner          = (cable_data.get('OWNER') or "")
-                        iof            = (cable_data.get('IOF') or "")
-                        construct_type = (cable_data.get('CONSTRUCT_TYPE') or "")
+                        status = cable_data.get('CABLE_STATUS', '')
+                        if "ZLS" in cable_data.get('NAME', '').upper() or status == "PD":
+                            commentary_parts.append("Cable is being decommissioned.")
+                        if status == "DF": commentary_parts.append("Cable is Defective.")
+                        if status == "PA": commentary_parts.append("Cable is New Build.")
+                        if cable_data.get('OWNER', '').upper() != "OPTUS":
+                            commentary_parts.append("Cable is not owned by Optus.")
 
-                        if ("ZLS" in name_upper) or (status == "PD"):
-                            commentary_parts.append("Cable is being decommissioned, DO NO USE")
-                        if status == "DF":
-                            commentary_parts.append("Cable is Defective, DO NOT USE")
-                        if status == "PA":
-                            commentary_parts.append("Cable is New Build, try to avoid or add FAD3 of its EO to FAD3 of your EO.")
-                        if owner and owner.upper() != "OPTUS":
-                            commentary_parts.append("Cable is not owned by Optus")
-                        # NEW IOF rule:
-                        # • DB IOF == "Y" → IOF
-                        # • OR name contains _AP/_MA/_SB/_SM → IOF
-                        is_ioF_name = self._name_marks_iof(fibre_cable)
-                        is_ioF_db   = (str(iof).strip().upper() == "Y")
-                        is_iof      = is_ioF_db or is_ioF_name
+                # --- 3. Splice Checks (Only if DB available) ---
+                if cursor and val_cd.strip():
+                    b_clean = _v(src_b).split("@")[0].strip()
+                    try:
+                        splice_data = self.fetch_splicecase_data(cursor, b_clean)
+                    except Exception:
+                        splice_data = None
+                    
+                    if not splice_data:
+                        commentary_parts.append("Cannot splice at this Splice Case (or not found in DB)")
+                    else:
+                        rs_code = (splice_data.get('RS_CODE') or "").upper()
+                        if ui_rs is not None: self.tree.set(item_id, column="RS Type", value=rs_code)
+                        if (splice_data.get('BUTTSPLICE') or "").upper() == "Y": commentary_parts.append("Splice Case is Butt Splice")
+                        
+                        restricted = (splice_data.get('RESTRICTED') or "").upper() == "Y"
+                        if restricted and rs_code != "RS-NO": commentary_parts.append(f"Splice Case is {rs_code}, ask permission.")
+                        elif rs_code == "RS-NO": commentary_parts.append(f"Splice Case is {rs_code}, DO NOT SPLICE.")
+                        elif rs_code == "RS-RB": commentary_parts.append(f"Splice Case is {rs_code}, DO NOT USE ring-barked tubes.")
 
-                        # Write IOF label into the table column
-                        if iof_idx is not None:
-                            current_vals = list(self.tree.item(item_id, "values"))
-                            while len(current_vals) <= iof_idx:
-                                current_vals.append("")
-                            current_vals[iof_idx] = "Y" if is_iof else ""
-                            self.tree.item(item_id, values=tuple(current_vals))
+                        comm = (splice_data.get('RS_COMMENTS') or "").lower()
+                        mh = (splice_data.get('MANHOLE') or "").upper()
+                        if "substation" in comm: commentary_parts.append("In substation, avoid.")
+                        if "citipower" in comm or "CP_" in mh: commentary_parts.append("In citipower pit, avoid.")
+                        if "etsa" in comm or "ET_" in mh: commentary_parts.append("In ETSA pit, DO NOT SPLICE.")
+                        if "tunnel" in comm: commentary_parts.append("In tunnel, DO NOT SPLICE.")
 
-                        if is_iof:
-                            commentary_parts.append("Cable is IOF, ask for permission from Fibre Planning Team")
-                        if (construct_type or "").upper() == "BU":
-                            commentary_parts.append("Cable is Buried")
-                        if (construct_type or "").upper() == "AR":
-                            commentary_parts.append("Cable is built Aerial")
-                        if (cable_data.get('NAME') or "").startswith("OF"):
-                            commentary_parts.append("Cable is 'OF', DO NOT USE")
+                # --- 4. Tube Mismatch ---
+                sel_type = (self.fibre_type.get() or "").strip()
+                row_tube = _v(src_tube).strip()
+                can2000 = {"Local", "Junction", "Trunk"}
+                if sel_type in can2000 and row_tube in can2000 and row_tube != sel_type:
+                    tags.append("tube_mismatch")
+                    if sel_type == "Local": commentary_parts.append(f"Tube is {row_tube}, expected Local.")
+                    elif sel_type == "Junction" and row_tube == "Trunk": commentary_parts.append("Tube is Trunk, expected Junction.")
 
-                    # Splice-case commentary if the row is a connect/disconnect
-                    if (connect_disc or "").strip() != "":
-                        b_end_for_search = b_end.rsplit("@", 1)[0] if "@" in (b_end or "") else (b_end or "")
-                        try:
-                            splice_data = self.fetch_splicecase_data(cursor, b_end_for_search.strip())
-                        except Exception:
-                            splice_data = None
-
-                        if splice_data is None:
-                            commentary_parts.append("Cannot splice at this Splice Case")
-                        else:
-                            if (splice_data.get('BUTTSPLICE') or "").upper() == "Y":
-                                commentary_parts.append("Splice Case is Butt Spice")
-                            rs_code = (splice_data.get('RS_CODE') or "").upper()
-                            # === NEW: set "RS Type" column with rs_code when Connect/Disconnect is present ===
-                            try:
-                                rs_type_idx = self.tree["columns"].index("RS Type")
-                            except ValueError:
-                                rs_type_idx = None
-
-                            if rs_type_idx is not None:
-                                current_vals = list(self.tree.item(item_id, "values"))
-                                while len(current_vals) <= rs_type_idx:
-                                    current_vals.append("")
-                                current_vals[rs_type_idx] = rs_code  # e.g., "", "RS-NO", "RS-RB", etc.
-                                self.tree.item(item_id, values=tuple(current_vals))
-
-                            restricted = (splice_data.get('RESTRICTED') or "").upper() == "Y"
-                            if restricted and rs_code != "RS-NO":
-                                commentary_parts.append(f"Splice Case is {rs_code}, ask fibre SME/field Ops for permission.")
-                            elif rs_code == "RS-NO":
-                                commentary_parts.append(f"Splice Case is {rs_code}, DO NOT SPLICE.")
-                            elif rs_code == "RS-RB":
-                                commentary_parts.append(f"Splice Case is {rs_code}, DO NOT USE fibres in ring-barked tubes.")
-                            rs_comments_lower = (splice_data.get('RS_COMMENTS') or "").lower()
-                            manhole_upper = (splice_data.get('MANHOLE') or "").upper()
-                            if "substation" in rs_comments_lower:
-                                commentary_parts.append("Splice Case is in substation, avoid as much as possible. If can't, ask fibre SME/field Ops for permission")
-                            if ("citipower" in rs_comments_lower) or ("CP_" in manhole_upper):
-                                commentary_parts.append("Splice Case is in citipower pit, avoid as much as possible. If can't, ask fibre SME/field Ops for permission")
-                            if ("etsa" in rs_comments_lower) or ("ET_" in manhole_upper):
-                                commentary_parts.append("Splice Case is in ETSA pit, DO NOT SPLICE.")
-                            if "tunnel" in rs_comments_lower:
-                                commentary_parts.append("Splice Case is in tunnel, DO NOT SPLICE")
-
-                    # Fibre type advisory + CAN2000 mismatch highlight
-                    selected_fibre_type = (self.fibre_type.get() or "").strip()
-                    # tube = (row[7] or "").strip()
-                    tube = (tube_value or "").strip()
-
-
-                    # 1) Keep your existing advisory text
-                    if selected_fibre_type == "Local" and tube == "Trunk":
-                        commentary_parts.append("If no alternative local fibre, disconnect the Trunk ranges and connect to Local ranges. Leave a helix note about this change. Otherwise, ask fibre SME for approval and attach the approval email to helix note.")
-                    elif selected_fibre_type == "Local" and tube == "Junction":
-                        commentary_parts.append("If no alternative local fibre, ask fibre SME for approval and attach the approval email to helix note.")
-                    elif selected_fibre_type == "Junction" and tube == "Trunk":
-                        commentary_parts.append("If no alternative junction fibre, disconnect the Trunk ranges and connect to Junction ranges. Leave a helix note about this change.Otherwise, ask fibre SME for approval and attach the approval email to helix note.")
-                    elif selected_fibre_type == "Trunk" and tube in ("Local", "Junction"):
-                        commentary_parts.append("If no alternative trunk fibre, proceed with your design.")
-
-                    # 2) Highlight ONLY when tube is a CAN2000 tube and mismatches selected type
-                    #    (Local/Junction/Trunk are the CAN2000 tubes; anything else—including "Non-CAN2000"—is ignored)
-                    can2000_tubes = {"Local", "Junction", "Trunk"}
-                    if selected_fibre_type in can2000_tubes and tube in can2000_tubes and tube != selected_fibre_type:
-                        # mark this row; your final styling already sets tube_mismatch = yellow
-                        tags.append("tube_mismatch")
-
-
-                    if commentary_parts:
-                        joined = "; ".join(commentary_parts)
-                        if joined and not joined.endswith(";"):
-                            joined += ";"
-                        current_vals = list(self.tree.item(item_id, "values"))
-                        existing_comm = (current_vals[commentary_idx] if commentary_idx < len(current_vals) else "").strip()
-                        merged_text = f"{existing_comm} {joined}".strip() if existing_comm else joined
-                        while len(current_vals) <= commentary_idx:
-                            current_vals.append("")
-                        current_vals[commentary_idx] = merged_text
-                        self.tree.item(item_id, values=tuple(current_vals))
-
+                if commentary_parts:
+                    full_text = "; ".join(commentary_parts)
+                    self.tree.set(item_id, column="Commentary", value=full_text)
                 if tags:
                     self.tree.item(item_id, tags=tuple(tags))
 
-            # ===== 6) Final styling =====
-            self.tree.tag_configure("tube_mismatch", background="yellow")
-            self.tree.tag_configure("parity_mismatch", background="lightblue")
-            self.tree.tag_configure("cs_alert", background="salmon")
+            if conn: conn.close()
             self.adjust_column_widths()
-
-            try:
-                if conn:
-                    conn.close()
-            except Exception:
-                pass
+            self.log("Processing finished.")
 
         except Exception as e:
             traceback.print_exc()
+            self.log(f"CRITICAL ERROR: {e}")
             messagebox.showerror("Error", f"An error occurred: {e}")
-
-
     def fetch_cable_data(self, cursor, cable_name):
         query = """
         SELECT NAME, CABLE_STATUS, OWNER, IOF, CONSTRUCT_TYPE, SEGMENT_ID
