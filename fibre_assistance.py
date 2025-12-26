@@ -26,6 +26,13 @@ from pathlib import Path
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+# prefer lxml if present
+try:
+    import lxml
+    _BS_PARSER = "lxml"
+except ImportError:
+    _BS_PARSER = "html.parser"
+
 # same base host you already use elsewhere
 VMR_BASE = "https://cadprdwebw001.optus.com.au/vmr"
 
@@ -187,300 +194,13 @@ def _table_extract(tbl):
 
 # >>> NEW: VMR HTML → CSV-like converter (so we can reuse process_csv())
 import tempfile
-from bs4 import BeautifulSoup
 import re
 
 # ---------- VMR HTML → CSV-like (matches what process_csv expects) ----------
-from bs4 import BeautifulSoup
 import tempfile, csv, re
-
-def _firstline_text(td):
-    parts = []
-    for child in td.children:
-        if getattr(child, "name", None) == "br":
-            break
-        if getattr(child, "name", None) == "img":
-            continue
-        if isinstance(child, str):
-            parts.append(child.strip())
-        else:
-            if child.name == "span" and "rs" in (child.get("class") or []):
-                continue
-            parts.append(child.get_text(strip=True))
-    s = " ".join(p for p in parts if p)
-    return re.sub(r"\s+", " ", s).strip()
-
-def _cd_text(td):
-    """
-    Parse the small C/D table inside the 'C/D' cell.
-    Output like: 'Connect3:1' or 'Disconnect289:121; Connect121:301'
-    (semicolon-separated if multiple lines).
-    """
-    if td is None:
-        return ""
-    out = []
-    for row in td.find_all("tr"):
-        img = row.find("img")
-        if not img:
-            continue
-        src = (img.get("src") or "").lower()
-        prefix = "Connect" if "connect" in src else ("Disconnect" if "disconnect" in src else "")
-        b = row.find("b")
-        num = b.get_text(strip=True) if b else ""
-        if prefix and num:
-            out.append(f"{prefix}{num}")
-    # de-duplicate while keeping order
-    seen, dedup = set(), []
-    for s in out:
-        if s not in seen:
-            seen.add(s); dedup.append(s)
-    return "; ".join(dedup)
-
-
-def _eo_only(td):
-    txt = td.get_text(" ", strip=True)
-    m = re.search(r"\bEO\d+\b", txt)
-    return m.group(0) if m else ""
-
-def _parse_len_from_nameblock(name_text):
-    # finds max 'XX.XXm' and fibres 'NN fibres'/'NNfibres'
-    m_all_len = re.findall(r"(\d+(?:\.\d+)?)\s*m\b", name_text, flags=re.I)
-    length_max = max([float(x) for x in m_all_len]) if m_all_len else None
-    m_fib = re.search(r"(\d+)\s*fibres?\b", name_text, flags=re.I)
-    tot_fib = int(m_fib.group(1)) if m_fib else None
-    return length_max, tot_fib
-
-def _derive_ft_from_summary(html_text):
-    soup = BeautifulSoup(html_text, _BS_PARSER)
-    table = soup.find("table", id="gvFibreTraceSummary")
-    if not table:
-        return None, None
-    # the middle column is "Name"
-    for tr in table.find_all("tr")[1:]:
-        tds = tr.find_all("td")
-        if len(tds) >= 3:
-            name = _firstline_text(tds[1]).strip()
-            up = name.upper()
-            if up.startswith("L_"): return "Local", name
-            if up.startswith("J_"): return "Junction", name
-            if up.startswith("T_"): return "Trunk", name
-            return None, name
-    return None, None
-
-# === NEW helpers (place above _vmr_html_to_csv_like_tempfile) =================
 
 # Keywords used to identify the Fibre Trace Details table, adapted from html_extractor.py
 _FTD_KEYWORDS = ["A End", "A-End", "B End", "B-End", "Fibre Cable", "Name", "Connect", "Disconnect", "C/D", "EO", "Length"]
-
-def _header_match_score(cells):
-    import re
-    joined = " | ".join(cells or [])
-    score = 0
-    for kw in _FTD_KEYWORDS:
-        if re.search(r"\b" + re.escape(kw) + r"\b", joined, flags=re.IGNORECASE):
-            score += 1
-    return score
-
-def _pick_fibretrace_table_bs4(html_text):
-    from bs4 import BeautifulSoup
-    import re
-    soup = BeautifulSoup(html_text, _BS_PARSER)
-    tables = soup.find_all("table")
-    if not tables:
-        return None
-
-    previews = []
-    for t in tables:
-        rows = []
-        for tr in t.find_all("tr"):  # (no recursive=False; walk all descendants)
-            cells = tr.find_all(["th", "td"])
-            if not cells:
-                continue
-            txts = [re.sub(r"\s+", " ", c.get_text(" ", strip=True)) for c in cells]
-            rows.append(txts)
-        previews.append(rows)
-
-    # (1) best header score
-    best_idx, best_score = None, -1
-    for idx, rows in enumerate(previews):
-        if not rows:
-            continue
-        header = next((r for r in rows if any(x.strip() for x in r)), [])
-        score = _header_match_score(header)
-        if score > best_score:
-            best_score, best_idx = score, idx
-    if best_idx is not None and best_score >= 2:
-        return tables[best_idx]
-
-    # (2) any that looks like fibre-path: contains connect/disconnect or n:n and >=5 cols
-    for idx, rows in enumerate(previews):
-        if not rows:
-            continue
-        any_conn = any(any(re.search(r"\b(connect|disconnect)\b", c, re.I) or re.search(r"\b\d+\s*:\s*\d+\b", c)
-                           for c in r) for r in rows)
-        max_cols = max((len(r) for r in rows), default=0)
-        if any_conn and max_cols >= 5:
-            return tables[idx]
-
-    # (3) seventh table if present
-    if len(tables) >= 7:
-        return tables[6]
-
-    # (4) largest by rows
-    largest_idx = max(range(len(previews)), key=lambda i: len(previews[i]))
-    return tables[largest_idx]
-
-
-
-# === REPLACE this whole function =============================================
-
-# === REPLACE this whole function =============================================
-def _vmr_html_to_csv_like_tempfile(html_text):
-    """
-    Robust HTML → temp CSV that mirrors the CSV your existing process_csv(...) expects.
-      • Marker row: ["Fibre Trace Details"]
-      • For EACH cable row:
-            [seq, A-End, Fibre Cable, B-End, Connect/Disconnect, EO, Length]
-        + spacer row
-        + "xx.xx m, NNfibres" in col 3
-
-    Guarantees the first cable row is included even with nested <tr>/<td> wrappers.
-    """
-    table = _pick_fibretrace_table_bs4(html_text)
-    if not table:
-        raise ValueError("Fibre Trace Details table not found.")
-
-    all_trs = table.find_all("tr")
-    header_idx = None
-    for i, tr in enumerate(all_trs):
-        ths = tr.find_all("th")
-        if ths and any("name" in th.get_text(strip=True).lower() or "fibre" in th.get_text(strip=True).lower()
-                       for th in ths):
-            header_idx = i
-            break
-
-    hdr_lc = []
-    if header_idx is not None:
-        hdr_lc = [re.sub(r"\s+", " ", th.get_text(" ", strip=True)).lower() for th in all_trs[header_idx].find_all("th")]
-        start_idx = header_idx + 1
-    else:
-        start_idx = 0
-
-    def idx_for(*names, default=None):
-        for nm in names:
-            if nm in hdr_lc:
-                return hdr_lc.index(nm)
-        return default
-
-    idx_a   = idx_for("a end","a-end")
-    idx_nm  = idx_for("name","fibre cable","fibre","fiber")
-    idx_b   = idx_for("z end","b end","b-end")
-    idx_cd  = idx_for("c/d","connect/disconnect","c d")
-    idx_eo  = idx_for("eo")
-    idx_len = idx_for("length(m)","length")
-
-    if any(x is None for x in (idx_a, idx_nm, idx_b, idx_cd, idx_eo, idx_len)):
-        idx_a   = 2 if idx_a   is None else idx_a
-        idx_nm  = 3 if idx_nm  is None else idx_nm
-        idx_b   = 4 if idx_b   is None else idx_b
-        idx_cd  = 8 if idx_cd  is None else idx_cd
-        idx_eo  = 9 if idx_eo  is None else idx_eo
-        idx_len = 10 if idx_len is None else idx_len
-
-    def firstline_text_from_cell(cell):
-        if cell is None: return ""
-        txt = cell.get_text("\n", strip=True)
-        return txt.split("\n", 1)[0].strip()
-
-    def eo_only_from_cell(cell):
-        if cell is None: return ""
-        txt = cell.get_text(" ", strip=True)
-        m = re.search(r"\bEO\d+\b", txt)
-        return m.group(0) if m else ""
-
-    def parse_len_from_nameblock(text):
-        m_all = re.findall(r"(\d+(?:\.\d+)?)\s*m\b", text, flags=re.I)
-        length_max = max([float(x) for x in m_all]) if m_all else None
-        m_fib = re.search(r"(\d+)\s*fibres?\b", text, flags=re.I)
-        total = int(m_fib.group(1)) if m_fib else None
-        return length_max, total
-
-    def normalize_cd(cell, fallback_text):
-        parsed = _cd_text(cell) if cell else ""
-        if parsed:
-            return parsed
-        t = (fallback_text or "").strip()
-        if not t:
-            return ""
-        t = t.replace("\r", "\n")
-        parts = [p.strip() for p in t.split("\n") if p.strip()]
-        t = "; ".join(parts)
-        t = re.sub(r"\bC\s*:?", "Connect", t, flags=re.I)
-        t = re.sub(r"\bD\s*:?", "Disconnect", t, flags=re.I)
-        t = re.sub(r"\bconnect\b", "Connect", t, flags=re.I)
-        t = re.sub(r"\bdisconnect\b", "Disconnect", t, flags=re.I)
-        t = re.sub(r"(Connect|Disconnect)\s+", r"\1", t)
-        if re.fullmatch(r"(\d+\s*:\s*\d+)(\s*;\s*\d+\s*:\s*\d+)*", t):
-            pairs = re.findall(r"\d+\s*:\s*\d+", t)
-            return "; ".join("Connect" + p.replace(" ", "") for p in pairs)
-        return t
-
-    out_rows = []
-    out_rows.append(["Fibre Trace Details"])
-    seq = 0
-
-    for tr in all_trs[start_idx:]:
-        tds = tr.find_all(["td","th"])
-        if not tds:
-            continue
-
-        def cell_at(i): return tds[i] if 0 <= i < len(tds) else None
-
-        name_cell = cell_at(idx_nm)
-        if name_cell is None:
-            continue
-
-        a_end = firstline_text_from_cell(cell_at(idx_a))
-        b_end = firstline_text_from_cell(cell_at(idx_b))
-
-        name_full = name_cell.get_text(" ", strip=True)
-        anchor = name_cell.find("a")
-        cable = anchor.get_text(strip=True) if anchor else firstline_text_from_cell(name_cell)
-        if "(#" in name_full and "(#" not in cable:
-            mm = re.search(r"\(#\s*\d+\s*\)", name_full)
-            if mm:
-                cable = f"{cable.strip()} {mm.group(0)}"
-
-        cd_fallback_text = cell_at(idx_cd).get_text("\n", strip=True) if cell_at(idx_cd) else ""
-        connect_disc = normalize_cd(cell_at(idx_cd), cd_fallback_text)
-
-        eo = eo_only_from_cell(cell_at(idx_eo))
-
-        length_str = ""
-        if cell_at(idx_len):
-            raw = (cell_at(idx_len).get_text(strip=True) or "").replace(",", "")
-            if re.match(r"^\d+(\.\d+)?$", raw):
-                length_str = f"{float(raw):.2f}"
-        if not length_str:
-            length_max, _ = parse_len_from_nameblock(name_full)
-            if isinstance(length_max, (int, float)):
-                length_str = f"{length_max:.2f}"
-
-        seq += 1
-
-        length_max, tot_fib = parse_len_from_nameblock(name_full)
-        fibres_line = f"{length_max:.2f}m, {tot_fib}fibres" if (length_max is not None and tot_fib) else ""
-
-        out_rows.append([str(seq), a_end, cable, b_end, connect_disc, eo, length_str])
-        out_rows.append(["", "", "", "", "", "", ""])
-        out_rows.append(["", "", fibres_line, "", "", "", ""])
-
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".csv", mode="w", encoding="cp1252", newline="")
-    w = csv.writer(tmp)
-    for r in out_rows:
-        w.writerow(r)
-    tmp.close()
-    return tmp.name
 
 def _infer_ft_from_csv_summary_name(csv_path):
     """
@@ -748,170 +468,6 @@ class CrossSectionCache:
         if not meta:
             return False
         return bool(meta.get("has_alert_by_tray", {}).get(tray_str, False))
-
-########################################################################
-# Cross Section Details viewer (callable function)
-########################################################################
-from bs4 import BeautifulSoup
-
-def _clean_cell_text(text: str) -> str:
-    import re
-    if text is None:
-        return ""
-    text = text.replace("\xa0", " ")
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
-
-def _extract_table(table):
-    headers, rows = [], []
-    if not table:
-        return headers, rows
-    first_tr = table.find("tr")
-    trs = table.find_all("tr")
-    if first_tr:
-        ths = first_tr.find_all(["th"])
-        if ths:
-            headers = [_clean_cell_text(th.get_text(" ", strip=True)) for th in ths]
-            trs = trs[1:]
-        else:
-            tds = first_tr.find_all("td")
-            if tds:
-                headers = [f"Col {i+1}" for i in range(len(tds))]
-    for tr in trs:
-        cells = tr.find_all(["td", "th"])
-        if not cells:
-            continue
-        row = [_clean_cell_text(c.get_text(" ", strip=True)) for c in cells]
-        if headers and len(row) != len(headers):
-            if len(row) < len(headers):
-                row += [""] * (len(headers) - len(row))
-            else:
-                row = row[:len(headers)]
-        rows.append(row)
-    return headers, rows
-
-def _parse_gridview2(html: str):
-    soup = BeautifulSoup(html, _BS_PARSER)
-    grid2 = soup.find(id="GridView2")
-    return _extract_table(grid2)
-
-def _should_highlight(values, idx_os, idx_bearer) -> bool:
-    try:
-        os_name = (values[idx_os] if idx_os is not None else "").strip()
-        bearer = (values[idx_bearer] if idx_bearer is not None else "").strip()
-    except Exception:
-        os_name, bearer = "", ""
-    if os_name.upper().startswith("T_"):
-        return True
-    bup = bearer.upper()
-    return ("OTS" in bup) or ("DWDM" in bup)
-
-def _filter_by_tray_range(rows, tray_range: str):
-    # tray_range like "1-6", "49-54" — interpreted as 1-based row numbers in GridView2
-    import re
-    s = (tray_range or "").strip()
-    if not s:
-        return rows
-    m = re.match(r"^\s*(\d+)\s*-\s*(\d+)\s*$", s)
-    if not m:
-        raise ValueError('Range must be "start-end", e.g. "1-6"')
-    a, b = int(m.group(1)), int(m.group(2))
-    if a > b:
-        a, b = b, a
-    a = max(1, a)
-    b = min(len(rows), b)
-    if a > b:
-        return []
-    # convert 1-based to 0-based slice
-    return rows[a-1:b]
-
-def open_cross_section_viewer(id_value: str, tray_range: str = ""):
-    """
-    Fetches the CrossSectionReview.aspx page for the given SEGMENT_ID (id_value),
-    parses GridView2, filters by tray_range (1-based row range), and displays
-    a Tkinter Toplevel window with a Treeview including row highlighting:
-     - OS Name starts with "T_"
-     - Bearer ID contains "OTS" or "DWDM" (case-insensitive)
-    """
-
-    url = VMR_Cable_URL + str(id_value)
-
-    try:
-        headers_http = {"User-Agent": "Mozilla/5.0 (compatible; FibreAssistance/1.0)"}
-        resp = requests.get(url, headers=headers_http, timeout=30, verify=True)
-        resp.raise_for_status()
-        headers, rows = _parse_gridview2(resp.text)
-        view_rows = _filter_by_tray_range(rows, tray_range)
-    except Exception as e:
-        messagebox.showerror("Cross Section Viewer", f"Failed to load/parse:\n{url}\n\n{e}")
-        return
-
-    win = tk.Toplevel()
-    win.title(f"Cross Section Details – {id_value}  [{tray_range or 'ALL'}]")
-    win.geometry("1100x700")
-
-    # toolbar
-    top = ttk.Frame(win)
-    top.pack(fill="x", padx=10, pady=8)
-    ttk.Label(top, text=f"ID: {id_value}   URL: {url}").pack(side="left")
-    ttk.Label(top, text=f"Showing {len(view_rows)} row(s) of {len(rows)}").pack(side="right")
-
-    # table
-    frame = ttk.Frame(win)
-    frame.pack(fill="both", expand=True, padx=10, pady=(0,10))
-    tree = ttk.Treeview(frame, columns=tuple(headers or []), show="headings", height=24)
-    # CHANGED: use classic Tk scrollbars with wider grip (match Fibre Check)
-    vsb = tk.Scrollbar(frame, orient="vertical", command=tree.yview, width=18)
-    hsb = tk.Scrollbar(frame, orient="horizontal", command=tree.xview, width=18)
-    tree.configure(yscroll=vsb.set, xscroll=hsb.set)
-    tree.grid(row=0, column=0, sticky="nsew")
-    vsb.grid(row=0, column=1, sticky="ns")
-    hsb.grid(row=1, column=0, sticky="ew")
-    frame.columnconfigure(0, weight=1)
-    frame.rowconfigure(0, weight=1)
-
-    # columns + highlight style
-    for col in (headers or []):
-        tree.heading(col, text=col)
-        # initial width; we will auto-size after inserting rows
-        tree.column(col, width=max(90, min(360, len(col)*10)), anchor="center", stretch=False)
-    tree.tag_configure("alert", background="#fff3cd")
-
-    colmap = {h.lower(): i for i, h in enumerate(headers or [])}
-    idx_os = colmap.get("os name")
-    idx_bearer = colmap.get("bearer id")
-
-    for r in view_rows:
-        tag = ("alert",) if _should_highlight(r, idx_os, idx_bearer) else ()
-        vals = r if len(r) == len(headers) else (r + [""]*(len(headers)-len(r)))[:len(headers)]
-        tree.insert("", "end", values=vals, tags=tag)
-
-    # NEW: auto-fit columns to content just like Fibre Check
-    def _autosize_columns(t):
-        style = ttk.Style()
-        body_font_name = style.lookup("Treeview", "font") or "TkDefaultFont"
-        heading_font_name = style.lookup("Treeview.Heading", "font") or body_font_name
-        body_font = tkfont.nametofont(body_font_name)
-        heading_font = tkfont.nametofont(heading_font_name)
-        t.update_idletasks()
-        cols = list(t["columns"])
-        for col in cols:
-            header_text = t.heading(col)["text"]
-            header_w = heading_font.measure(header_text) + 24
-            col_index = cols.index(col)
-            max_w = header_w
-            for iid in t.get_children(""):
-                vals = t.item(iid, "values")
-                text = str(vals[col_index]) if col_index < len(vals) else ""
-                max_w = max(max_w, body_font.measure(text) + 24)
-            computed = max(80, max_w)
-            t.column(col, width=computed, minwidth=computed, stretch=False)
-
-    _autosize_columns(tree)
-
-    # close on Esc
-    win.bind("<Escape>", lambda e: win.destroy())
-
 
 ########################################################################
 # REUSABLE DOWNLOAD LOGIC
@@ -1676,7 +1232,6 @@ class FibreProcessor:
         Returns (headers:list[str], rows:list[list[str]]).
         Safe fallback if cached headers/rows are missing.
         """
-        from bs4 import BeautifulSoup
         import re
 
         soup = BeautifulSoup(html_text, "lxml")
@@ -2499,12 +2054,17 @@ class FibreProcessor:
             out.append([str(i), a_end, fibre_cable, b_end, conn, eo, length_val, tube, "", "", "", tray])
 
         return out, selected
+
     def process_data(self):
-        import re, sqlite3, traceback, requests, time
+        # Added 'os' to imports for file cleanup
+        import re, sqlite3, traceback, requests, time, os
         from tkinter import messagebox
 
         self.log("Starting processing...")
         src = (self.source_var.get() or "CSV").upper()
+
+        # Track temp file for cleanup
+        temp_csv_file = None
 
         try:
             # =========================================================
@@ -2516,13 +2076,42 @@ class FibreProcessor:
                     messagebox.showerror("Error", "Please select an input CSV file first.")
                     return
 
-                self.log(f"Reading CSV: {input_file}")
-                ft = _infer_ft_from_csv_summary_name(input_file)
+                # --- START UPDATE: HTML Detection & Conversion ---
+                working_file = input_file
+                
+                if input_file.lower().endswith(('.htm', '.html')):
+                    self.log(f"Detected HTML file. Converting to CSV format...")
+                    try:
+                        with open(input_file, 'r', encoding='utf-8', errors='replace') as f:
+                            raw_html = f.read()
+                        
+                        # Call the global helper function to create a temp CSV
+                        temp_csv_file = _vmr_html_to_csv_like_tempfile(raw_html)
+                        working_file = temp_csv_file
+                        self.log(f"Conversion successful. Temp CSV created.")
+                    except Exception as e:
+                        messagebox.showerror("Error", f"Failed to convert HTML file:\n{e}")
+                        self.log(f"Error converting HTML: {e}")
+                        return
+                else:
+                    self.log(f"Reading CSV: {input_file}")
+                # --- END UPDATE ---
+
+                # Use working_file (which is either the original CSV or the temp converted CSV)
+                ft = _infer_ft_from_csv_summary_name(working_file)
                 if ft:
                     self.fibre_type.set(ft)
-                    self.log(f"Inferred Fibre Type from CSV: {ft}")
+                    self.log(f"Inferred Fibre Type from file: {ft}")
 
-                processed_data, selected_fibres = self.process_csv(input_file)
+                processed_data, selected_fibres = self.process_csv(working_file)
+
+                # Cleanup temp file immediately after reading
+                if temp_csv_file and os.path.exists(temp_csv_file):
+                    try:
+                        os.remove(temp_csv_file)
+                        temp_csv_file = None
+                    except Exception as e:
+                        self.log(f"Warning: Could not delete temp file: {e}")
 
             else:
                 # VMR Source
@@ -2687,7 +2276,7 @@ class FibreProcessor:
                 conn = sqlite3.connect(self.db_path)
                 cursor = conn.cursor()
 
-            # ... [Indices Setup remains the same] ...
+            # ... [Indices Setup] ...
             src_a     = _idx("A-End", 1)
             src_cable = _idx("Fibre Cable", 2)
             src_b     = _idx("B-End", 3)
@@ -2745,7 +2334,6 @@ class FibreProcessor:
                     try:
                         cable_data = self.fetch_cable_data(cursor, clean_cable)
                     except Exception as e:
-                        # Log once if verbose, else silent
                         cable_data = None
                     
                     if cable_data:
@@ -2812,6 +2400,11 @@ class FibreProcessor:
             traceback.print_exc()
             self.log(f"CRITICAL ERROR: {e}")
             messagebox.showerror("Error", f"An error occurred: {e}")
+            # Ensure cleanup happens even on crash if temp file exists
+            if temp_csv_file and os.path.exists(temp_csv_file):
+                try: os.remove(temp_csv_file)
+                except: pass
+
     def fetch_cable_data(self, cursor, cable_name):
         query = """
         SELECT NAME, CABLE_STATUS, OWNER, IOF, CONSTRUCT_TYPE, SEGMENT_ID
@@ -2905,15 +2498,28 @@ class FibrePathConverter:
             messagebox.showwarning("Warning", "Please select an input file.")
             return
         try:
-            # Reuse existing CSV‐parsing logic
-            processed_data, _ = FibreProcessor.process_csv(self, input_file)
+            # Simple CSV parsing - we only need the 3rd column (index 2)
+            with open(input_file, 'r', encoding='cp1252', errors='ignore') as f:
+                reader = csv.reader(f)
+                rows = list(reader)
 
-            # Extract the 'Fibre Cable' column, dropping anything from "(" onward
+            # Find header or data start
+            start_index = 0
+            for i, row in enumerate(rows):
+                if any("Fibre Trace Details" in str(cell) for cell in row):
+                    start_index = i + 1
+                    break
+            
             fibre_list = []
-            for row in processed_data[1:]:
-                cable = row[2] or ""
-                cable = cable.split('(')[0].strip()
-                fibre_list.append(cable)
+            # Iterate data rows
+            for row in rows[start_index:]:
+                # Ensure row has enough columns (Index 2 is Fibre Cable)
+                if len(row) > 2:
+                    cable = row[2] or ""
+                    # Logic: Take text before '(', strip whitespace
+                    cable = cable.split('(')[0].strip()
+                    if cable and cable.lower() != "fibre cable": # Skip header if repeated
+                        fibre_list.append(cable)
 
             result = ",".join(fibre_list)
 
@@ -2972,6 +2578,266 @@ def main():
     FibrePathConverter(converter_frame)
 
     root.mainloop()
+
+# =============================================================================
+# VMR HTML TO CSV MAPPING & PARSING LOGIC
+# =============================================================================
+
+def _vmr_html_to_csv_like_tempfile(html_text):
+    """
+    Parses the raw VMR HTML and generates a temporary CSV file that exactly matches
+    the structure of 'ExportPage.xls.csv'. This allows downstream CSV parsers
+    to work with VMR data without modification.
+    """
+    soup = BeautifulSoup(html_text, _BS_PARSER)
+    
+    # Create a temp file that auto-deletes on close is risky for re-opening, 
+    # so we use delete=False and manage cleanup manually.
+    fd, tmp_path = tempfile.mkstemp(suffix=".csv", text=True)
+    
+    try:
+        with os.fdopen(fd, 'w', newline='', encoding='cp1252', errors='replace') as f:
+            writer = csv.writer(f)
+
+            # Helper to clean text
+            def clean_txt(tag):
+                if not tag: return ""
+                # Collapse whitespace
+                return " ".join(tag.get_text(" ", strip=True).split())
+
+            # --- 1. Fibre Trace Summary ---
+            writer.writerow(["Fibre Trace Summary"])
+            tbl_summary = soup.find("table", id="gvFibreTraceSummary")
+            if tbl_summary:
+                rows = tbl_summary.find_all("tr")
+                if rows:
+                    # Header
+                    headers = [clean_txt(th) for th in rows[0].find_all(["th", "td"])]
+                    writer.writerow(headers)
+                    # Data
+                    for tr in rows[1:]:
+                        cells = [clean_txt(td) for td in tr.find_all("td")]
+                        writer.writerow(cells)
+            writer.writerow([]) # Spacer
+
+            # --- 2. Calculated Loss ---
+            writer.writerow(["Calculated Loss"])
+            tbl_loss = soup.find("table", id="gvDbLoss")
+            if tbl_loss:
+                # The loss table is often nested. Look for inner data rows.
+                rows = tbl_loss.find_all("tr")
+                extracted_rows = []
+                for tr in rows:
+                    cells = [clean_txt(td) for td in tr.find_all(["th", "td"])]
+                    if cells and any(cells): 
+                        extracted_rows.append(cells)
+                
+                # Write unique rows (simple dedupe for nested headers)
+                seen = []
+                for r in extracted_rows:
+                    r_str = str(r)
+                    if r_str not in seen:
+                        writer.writerow(r)
+                        seen.append(r_str)
+            writer.writerow([]) # Spacer
+
+            # --- 3. Fibre Trace Details ---
+            # CSV Layout: [ID, A End, Name, Z End, C/D, EO, Length]
+            writer.writerow(["Fibre Trace Details"])
+            
+            # Standard Header Row (7 columns)
+            # Row 19 in sample CSV: "C/D", "EO", "Length(m)" are misaligned headers,
+            # but we will write a clean header for consistency.
+            writer.writerow(["ID", "A End", "Name", "Z End", "C/D", "EO", "Length(m)"])
+
+            tbl_details = soup.find("table", id="gvFibreTraceDetails")
+            if tbl_details:
+                trs = tbl_details.find_all("tr")
+                # Skip header if present
+                start_idx = 1 if trs and trs[0].find("th") else 0
+                
+                for tr in trs[start_idx:]:
+                    tds = tr.find_all("td")
+                    if not tds: continue
+
+                    # Visual Mapping to 7-column CSV:
+                    # HTML Index 1 -> ID      -> CSV Col 0
+                    # HTML Index 2 -> A End   -> CSV Col 1
+                    # HTML Index 3 -> Name    -> CSV Col 2
+                    # HTML Index 4 -> Z End   -> CSV Col 3
+                    # HTML Index 8 -> C/D     -> CSV Col 4 (Nested table)
+                    # HTML Index 9 -> EO      -> CSV Col 5
+                    # HTML Index 10 -> Length -> CSV Col 6
+                    
+                    def get_td(idx): return tds[idx] if idx < len(tds) else None
+                    
+                    item_id = clean_txt(get_td(1))
+                    a_end_full = clean_txt(get_td(2))
+                    
+                    # Name Column (Complex: Cable Name + Details)
+                    name_td = get_td(3)
+                    name_full = clean_txt(name_td)
+                    
+                    # Extract clean cable name (from anchor if possible)
+                    cable_name = ""
+                    if name_td:
+                        anchor = name_td.find("a")
+                        if anchor:
+                            cable_name = anchor.get_text(strip=True)
+                        else:
+                            cable_name = name_full.split(" ")[0]
+                        # Append (#xx) if missing
+                        m_num = re.search(r"\(#\d+\)", name_full)
+                        if m_num and m_num.group(0) not in cable_name:
+                            cable_name += m_num.group(0)
+
+                    z_end_full = clean_txt(get_td(4))
+                    
+                    # C/D (Connect/Disconnect) - Inside nested table in col 8
+                    cd_td = get_td(8)
+                    cd_text = ""
+                    if cd_td:
+                        for sr in cd_td.find_all("tr"):
+                            img = sr.find("img")
+                            txt = sr.get_text(strip=True)
+                            if img:
+                                src = img.get("src", "").lower()
+                                ctype = "Connect" if "connect" in src else "Disconnect" if "disconnect" in src else ""
+                                if ctype:
+                                    cd_text += f"{ctype}:{txt} "
+                    cd_text = cd_text.strip()
+
+                    eo_text = clean_txt(get_td(9))
+                    length_text = clean_txt(get_td(10))
+
+                    # --- Write Rows ---
+                    # Row 1: Main Data
+                    row1 = [""] * 7
+                    row1[0] = item_id
+                    row1[1] = a_end_full
+                    row1[2] = cable_name
+                    row1[3] = z_end_full
+                    row1[4] = cd_text
+                    row1[5] = eo_text
+                    row1[6] = length_text
+                    writer.writerow(row1)
+                    
+                    # Row 2: Spacer (as seen in CSV)
+                    writer.writerow([])
+                    
+                    # Row 3: Length/Fibre Detail (as seen in CSV)
+                    # We extract this from name_full: "636.00m, 36fibres"
+                    m_len = re.search(r"(\d+(?:\.\d+)?)\s*m", name_full, re.IGNORECASE)
+                    m_fib = re.search(r"(\d+)\s*fibres", name_full, re.IGNORECASE)
+                    if m_len and m_fib:
+                        row3 = [""] * 7
+                        row3[2] = f"{m_len.group(1)}m, {m_fib.group(1)}fibres"
+                        writer.writerow(row3)
+                    
+                    # Row 4: Spacer
+                    writer.writerow([])
+
+        return tmp_path
+    except Exception as e:
+        # If writing fails, try to cleanup
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        raise e
+
+
+def _parse_optical_system_csv(file_path):
+    """
+    Parses the converted CSV file (which mimics ExportPage.xls.csv).
+    Returns a dictionary with 'summary' and 'details'.
+    """
+    result = {
+        "summary": {},
+        "details": []
+    }
+    
+    with open(file_path, 'r', encoding='cp1252', errors='ignore') as f:
+        reader = csv.reader(f)
+        rows = list(reader)
+
+    # Simple state machine to parse sections
+    section = None
+    
+    # 1. Parse Summary (approx rows 0-15)
+    # We look for "Fibre Trace Summary" then the data row
+    for i, row in enumerate(rows):
+        if not row: continue
+        first_cell = row[0].strip()
+        
+        if "Fibre Trace Summary" in first_cell:
+            # Usually header is next, then data
+            if i + 2 < len(rows):
+                data_row = rows[i+2]
+                if len(data_row) >= 3:
+                    result["summary"] = {
+                        "A End": data_row[0],
+                        "Name": data_row[1],
+                        "Z End": data_row[2]
+                    }
+            continue
+            
+        if "Fibre Trace Details" in first_cell:
+            section = "details"
+            continue
+            
+        # Parse Details
+        if section == "details":
+            # We look for rows that have an ID in col 0 (e.g., "1", "2")
+            # and a Name in col 2.
+            if len(row) >= 7 and row[0].strip().isdigit():
+                item = {
+                    "ID": row[0].strip(),
+                    "A End": row[1].strip(),
+                    "Name": row[2].strip(),
+                    "Z End": row[3].strip(),
+                    "C/D": row[4].strip(),
+                    "EO": row[5].strip(),
+                    "Length": row[6].strip()
+                }
+                
+                # Look ahead for the "Length/Fibres" row (usually 2 rows down)
+                # Current row is i. Row i+2 might contain "636.00m, 36fibres" in col 2
+                if i + 2 < len(rows):
+                    extra_row = rows[i+2]
+                    if len(extra_row) > 2 and "fibres" in extra_row[2]:
+                        item["Details"] = extra_row[2].strip()
+                        
+                result["details"].append(item)
+
+    return result
+
+
+def _parse_vmr_html(file_path):
+    """
+    Parses a VMR HTML file by first converting it to a CSV-like structure
+    and then using the CSV parser.
+    """
+    try:
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            html_content = f.read()
+    except Exception:
+        # Fallback for encoding issues
+        with open(file_path, 'r', encoding='cp1252', errors='ignore') as f:
+            html_content = f.read()
+            
+    # 1. Convert HTML to Temp CSV
+    temp_csv_path = _vmr_html_to_csv_like_tempfile(html_content)
+    
+    try:
+        # 2. Parse using the CSV logic
+        data = _parse_optical_system_csv(temp_csv_path)
+        return data
+    finally:
+        # 3. Cleanup
+        if os.path.exists(temp_csv_path):
+            try:
+                os.unlink(temp_csv_path)
+            except:
+                pass
 
 if __name__ == "__main__":
     main()
